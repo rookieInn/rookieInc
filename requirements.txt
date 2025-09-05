@@ -19,3 +19,14 @@ configparser==6.0.0
 # 文本转GIF生成器所需依赖
 Pillow==10.1.0
 numpy==1.24.3
+
+# 页面埋点统计所需依赖
+pymongo==4.6.0
+flask==3.0.0
+flask-cors==4.0.0
+python-dateutil==2.8.2
+
+# 数据分析和可视化
+pandas==2.1.4
+matplotlib==3.7.2
+seaborn==0.12.2
