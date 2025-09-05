@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>页面埋点演示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .button {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .button:hover {
+            background: #5a6fd8;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .stats {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .log {
+            background: #f1f1f1;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 页面埋点演示</h1>
+        <p>这是一个演示页面，展示如何使用埋点SDK收集用户行为数据</p>
+    </div>
+
+    <div class="section">
+        <h2>📊 埋点状态</h2>
+        <div id="tracking-status" class="stats">
+            <p>状态: <span id="status">初始化中...</span></p>
+            <p>会话ID: <span id="session-id">-</span></p>
+            <p>队列长度: <span id="queue-length">0</span></p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🎯 交互测试</h2>
+        <p>点击下面的按钮来测试不同类型的埋点事件：</p>
+        
+        <button class="button" id="test-click">测试点击事件</button>
+        <button class="button" id="test-custom">测试自定义事件</button>
+        <button class="button" id="test-form">测试表单事件</button>
+        <button class="button" id="test-scroll">测试滚动事件</button>
+        <button class="button" id="flush-events">立即发送事件</button>
+    </div>
+
+    <div class="section">
+        <h2>📝 表单测试</h2>
+        <form id="test-form">
+            <div class="form-group">
+                <label for="name">姓名:</label>
+                <input type="text" id="name" name="name" placeholder="请输入姓名">
+            </div>
+            <div class="form-group">
+                <label for="email">邮箱:</label>
+                <input type="email" id="email" name="email" placeholder="请输入邮箱">
+            </div>
+            <div class="form-group">
+                <label for="message">留言:</label>
+                <textarea id="message" name="message" rows="3" placeholder="请输入留言"></textarea>
+            </div>
+            <button type="submit" class="button">提交表单</button>
+        </form>
+    </div>
+
+    <div class="section">
+        <h2>📈 实时日志</h2>
+        <div id="event-log" class="log">
+            <div>等待事件...</div>
+        </div>
+        <button class="button" onclick="clearLog()">清空日志</button>
+    </div>
+
+    <div class="section">
+        <h2>🔧 配置测试</h2>
+        <div class="form-group">
+            <label for="user-id">用户ID:</label>
+            <input type="text" id="user-id" placeholder="输入用户ID">
+        </div>
+        <button class="button" onclick="updateUserId()">更新用户ID</button>
+        <button class="button" onclick="getStats()">获取统计信息</button>
+    </div>
+
+    <!-- 引入埋点SDK -->
+    <script src="tracking_sdk.js"></script>
+    
+    <script>
+        let tracking = null;
+        let logContainer = null;
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            logContainer = document.getElementById('event-log');
+            
+            // 初始化埋点SDK
+            tracking = initTracking({
+                apiUrl: 'http://localhost:5000/api',
+                userId: 'demo_user_' + Math.random().toString(36).substr(2, 9),
+                debug: true,
+                batchSize: 5,
+                flushInterval: 3000
+            });
+
+            // 更新状态显示
+            updateStatus();
+            
+            // 设置事件监听
+            setupEventListeners();
+            
+            // 监听SDK事件（如果有的话）
+            setupSDKListeners();
+            
+            log('页面加载完成，埋点SDK已初始化');
+        });
+
+        function setupEventListeners() {
+            // 点击事件测试
+            document.getElementById('test-click').addEventListener('click', function() {
+                tracking.trackEvent('test_click', {
+                    element_id: 'test-click',
+                    element_text: '测试点击事件',
+                    custom_data: { test: true }
+                });
+                log('发送点击事件');
+            });
+
+            // 自定义事件测试
+            document.getElementById('test-custom').addEventListener('click', function() {
+                tracking.trackEvent('custom_demo_event', {
+                    custom_data: {
+                        action: 'demo_button_click',
+                        timestamp: new Date().toISOString(),
+                        random_value: Math.random()
+                    }
+                });
+                log('发送自定义事件');
+            });
+
+            // 表单事件测试
+            document.getElementById('test-form').addEventListener('click', function() {
+                tracking.trackEvent('form_interaction', {
+                    form_id: 'test-form',
+                    custom_data: { action: 'form_test_click' }
+                });
+                log('发送表单事件');
+            });
+
+            // 滚动事件测试
+            document.getElementById('test-scroll').addEventListener('click', function() {
+                tracking.trackEvent('manual_scroll_test', {
+                    scroll_depth: Math.random() * 100,
+                    custom_data: { action: 'manual_scroll_test' }
+                });
+                log('发送滚动事件');
+            });
+
+            // 立即发送事件
+            document.getElementById('flush-events').addEventListener('click', function() {
+                tracking.forceFlush();
+                log('强制发送所有待发送事件');
+            });
+
+            // 表单提交
+            document.getElementById('test-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                tracking.trackEvent('form_submit', {
+                    form_id: 'test-form',
+                    form_data: {
+                        name: document.getElementById('name').value,
+                        email: document.getElementById('email').value,
+                        has_message: !!document.getElementById('message').value
+                    }
+                });
+                log('表单提交事件');
+                alert('表单已提交（演示用）');
+            });
+        }
+
+        function setupSDKListeners() {
+            // 定期更新状态
+            setInterval(updateStatus, 1000);
+        }
+
+        function updateStatus() {
+            if (tracking) {
+                document.getElementById('status').textContent = '已连接';
+                document.getElementById('session-id').textContent = tracking.getSessionId();
+                document.getElementById('queue-length').textContent = tracking.getQueueLength();
+            }
+        }
+
+        function updateUserId() {
+            const newUserId = document.getElementById('user-id').value;
+            if (newUserId && tracking) {
+                tracking.setUserId(newUserId);
+                log('用户ID已更新为: ' + newUserId);
+            } else {
+                alert('请输入有效的用户ID');
+            }
+        }
+
+        function getStats() {
+            if (tracking) {
+                const stats = {
+                    sessionId: tracking.getSessionId(),
+                    queueLength: tracking.getQueueLength(),
+                    userId: tracking.config.userId
+                };
+                log('当前统计信息: ' + JSON.stringify(stats, null, 2));
+            }
+        }
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            logContainer.innerHTML = '<div>日志已清空</div>';
+        }
+
+        // 模拟一些自动事件
+        setTimeout(() => {
+            tracking.trackEvent('page_ready', {
+                custom_data: { 
+                    load_time: performance.now(),
+                    user_agent: navigator.userAgent
+                }
+            });
+            log('页面就绪事件');
+        }, 1000);
+
+        // 模拟页面停留时间跟踪
+        let pageStartTime = Date.now();
+        window.addEventListener('beforeunload', function() {
+            const duration = Date.now() - pageStartTime;
+            tracking.trackEvent('page_exit', {
+                custom_data: { 
+                    duration_ms: duration,
+                    duration_seconds: Math.round(duration / 1000)
+                }
+            });
+        });
+    </script>
+</body>
+</html>
