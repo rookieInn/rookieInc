@@ -1,0 +1,17 @@
+# SQL查询结果推送到腾讯文档所需依赖
+
+# 数据库连接
+pymysql==1.1.0
+
+# 数据处理
+pandas==2.1.4
+
+# HTTP请求
+requests==2.31.0
+
+# 配置文件解析
+configparser==6.0.0
+
+# 可选：其他数据库支持
+# psycopg2-binary==2.9.9  # PostgreSQL
+# cx_Oracle==8.3.0        # Oracle
