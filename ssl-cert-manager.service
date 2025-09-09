@@ -1,0 +1,24 @@
+[Unit]
+Description=SSL Certificate Manager for Let's Encrypt
+Documentation=https://letsencrypt.org/
+After=network.target nginx.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/workspace/ssl_cert_manager.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ssl-cert-manager
+
+# 安全设置
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log /etc/letsencrypt /var/www/html /etc/nginx/sites-available /etc/nginx/sites-enabled
+
+[Install]
+WantedBy=multi-user.target

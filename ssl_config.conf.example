@@ -1,0 +1,21 @@
+# Let's Encrypt SSL证书管理配置文件
+# 复制此文件为 ssl_config.conf 并修改相应配置
+
+# 必需配置
+DOMAIN="example.com"                    # 要申请证书的域名
+EMAIL="admin@example.com"               # 联系邮箱
+
+# Nginx配置
+NGINX_SITE_CONFIG="/etc/nginx/sites-available/example.com"  # Nginx站点配置文件路径
+WEBROOT="/var/www/html"                 # Web根目录，用于域名验证
+
+# 证书管理
+CERT_RENEWAL_DAYS=30                    # 证书提前多少天开始续期（默认30天）
+
+# 日志配置
+LOG_FILE="/var/log/ssl_cert_manager.log"  # 日志文件路径
+
+# 高级配置（通常不需要修改）
+CERTBOT_DIR="/etc/letsencrypt"          # Let's Encrypt证书存储目录
+NGINX_CONFIG_DIR="/etc/nginx/sites-available"  # Nginx配置目录
+NGINX_ENABLED_DIR="/etc/nginx/sites-enabled"   # Nginx启用配置目录

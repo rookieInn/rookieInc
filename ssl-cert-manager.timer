@@ -1,0 +1,14 @@
+[Unit]
+Description=Run SSL Certificate Manager every day
+Requires=ssl-cert-manager.service
+
+[Timer]
+# 每天凌晨2点执行
+OnCalendar=*-*-* 02:00:00
+# 如果系统启动时错过了执行时间，立即执行一次
+Persistent=true
+# 随机延迟0-3600秒，避免所有服务器同时请求
+RandomizedDelaySec=3600
+
+[Install]
+WantedBy=timers.target

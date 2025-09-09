@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  wechat-chatgpt-bot:
+    build: .
+    container_name: wechat-chatgpt-bot
+    restart: unless-stopped
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - WECHAT_AUTO_REPLY=true
+      - WECHAT_REPLY_GROUPS=true
+      - WECHAT_REPLY_PRIVATE=true
+    volumes:
+      - ./bot_config.ini:/app/bot_config.ini
+      - ./bot_config_advanced.ini:/app/bot_config_advanced.ini
+      - ./logs:/app/logs
+      - ./data:/app/data
+    networks:
+      - wechat-bot-network
+
+networks:
+  wechat-bot-network:
+    driver: bridge
