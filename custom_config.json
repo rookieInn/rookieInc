@@ -1,0 +1,11 @@
+{
+    "sync_interval_minutes": 60,
+    "backup_enabled": true,
+    "backup_retention_days": 14,
+    "exclude_folders": [
+        "书签栏",
+        "其他书签",
+        "工作书签"
+    ],
+    "log_level": "DEBUG"
+}
