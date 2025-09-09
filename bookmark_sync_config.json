@@ -1,0 +1,9 @@
+{
+    "sync_interval_minutes": 30,
+    "backup_enabled": true,
+    "backup_retention_days": 7,
+    "chrome_profile": "Default",
+    "edge_profile": "Default",
+    "exclude_folders": ["书签栏", "其他书签"],
+    "log_level": "INFO"
+}
