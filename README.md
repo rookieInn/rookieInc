@@ -1,224 +1,131 @@
+# MariaDB到MySQL迁移工具包
 
-# 阿里云OSS到百度云盘迁移工具
+本工具包提供了将MariaDB数据库迁移到MySQL的完整解决方案，特别适用于MariaDB服务无法启动的情况。
 
-这个工具可以将阿里云OSS中指定年份的文件夹下载、打包、上传到百度云盘，然后删除原文件夹。
+## 文件说明
 
-## 功能特性
+### 主要脚本
+- `mariadb_to_mysql_migration.sh` - 自动迁移脚本（包含测试数据）
+- `migrate_existing_mariadb.sh` - 迁移现有MariaDB数据文件
+- `example_usage.sh` - 使用示例和说明
 
-- 自动列出指定年份的所有文件夹
-- 批量下载文件夹内容
-- 创建ZIP压缩包
-- 上传到百度云盘
-- 删除原OSS文件夹
-- 详细的日志记录
-- 进度条显示
+### 文档
+- `manual_migration_guide.md` - 详细的手动迁移指南
+- `README.md` - 本说明文档
 
-## 安装依赖
+## 快速开始
 
+### 方法1: 自动迁移（推荐用于测试）
 ```bash
-pip install -r requirements.txt
+sudo ./mariadb_to_mysql_migration.sh
 ```
 
-## 配置
-
-1. 复制并编辑配置文件：
-
+### 方法2: 迁移现有数据文件
 ```bash
-cp config.ini config_local.ini
+# 如果您的MariaDB数据目录在 /var/lib/mysql
+sudo ./migrate_existing_mariadb.sh /var/lib/mysql my_database
+
+# 如果您的MariaDB数据目录在其他位置
+sudo ./migrate_existing_mariadb.sh /path/to/mariadb/data my_database
 ```
 
-2. 编辑 `config_local.ini` 文件，填入您的配置信息：
-
-```ini
-[aliyun_oss]
-access_key_id = YOUR_ACCESS_KEY_ID
-access_key_secret = YOUR_ACCESS_KEY_SECRET
-endpoint = https://oss-cn-hangzhou.aliyuncs.com
-bucket_name = YOUR_BUCKET_NAME
-
-[baidu_pan]
-access_token = YOUR_BAIDU_PAN_ACCESS_TOKEN
-
-[general]
-temp_dir = ./temp
-output_dir = ./output
-target_year = 2023
-```
-
-### 配置说明
-
-- **aliyun_oss**: 阿里云OSS的访问凭证和配置
-- **baidu_pan**: 百度云盘的访问令牌
-- **general**: 通用配置，包括临时目录、输出目录和目标年份
-
-## 使用方法
-
-### 基本用法
-
+### 方法3: 手动迁移
 ```bash
-python oss_to_baidupan.py
+# 1. 导出MariaDB数据
+mysqldump -u root -p --all-databases > mariadb_export.sql
+
+# 2. 启动MySQL
+sudo systemctl start mysql
+
+# 3. 导入数据
+mysql -u root -p < mariadb_export.sql
 ```
 
-### 使用自定义配置文件
+## 迁移方法对比
 
-```bash
-python oss_to_baidupan.py config_local.ini
-```
+| 方法 | 优点 | 缺点 | 适用场景 |
+|------|------|------|----------|
+| mysqldump | 兼容性好，数据完整 | 需要MariaDB运行 | MariaDB可启动 |
+| 文件复制 | 速度快，无需启动MariaDB | 可能有兼容性问题 | MariaDB无法启动 |
+| Docker容器 | 隔离环境，易于测试 | 需要Docker | 测试环境 |
 
-## 工作流程
+## 系统要求
 
-1. **扫描文件夹**: 列出OSS中指定年份的所有文件夹
-2. **下载文件**: 将每个文件夹的内容下载到本地临时目录
-3. **创建压缩包**: 将下载的文件夹打包成ZIP文件
-4. **上传到百度云盘**: 将ZIP文件上传到百度云盘
-5. **清理本地文件**: 删除本地临时文件
-6. **删除OSS文件夹**: 删除OSS中的原始文件夹
+- Ubuntu/Debian系统
+- Root权限
+- 足够的磁盘空间（至少是原数据库大小的2倍）
 
 ## 注意事项
 
-⚠️ **重要提醒**:
-- 此操作会永久删除OSS中的原始文件夹，请确保数据已正确备份
-- 建议先在测试环境中验证功能
-- 确保有足够的本地存储空间用于临时文件
-- 百度云盘API需要有效的访问令牌
-
-## 日志
-
-程序运行时会生成详细的日志文件 `migration.log`，包含：
-- 操作进度
-- 错误信息
-- 成功/失败统计
-
-## 错误处理
-
-程序包含完善的错误处理机制：
-- 网络连接错误
-- 文件操作错误
-- API调用错误
-- 权限错误
-
-## 扩展功能
-
-### 使用真实的百度云盘客户端
-
-当前版本使用模拟客户端进行测试。要使用真实的百度云盘API，请：
-
-1. 替换 `MockBaiduPanClient` 为 `BaiduPanClient`
-2. 配置正确的百度云盘API参数
-3. 实现百度云盘的OAuth认证流程
-
-### 自定义配置
-
-可以通过修改配置文件来调整：
-- 目标年份
-- 临时目录位置
-- 输出目录位置
-- 压缩格式
+1. **备份数据**: 迁移前务必备份原始数据
+2. **版本兼容性**: 确保MariaDB和MySQL版本兼容
+3. **字符集**: 检查并统一字符集设置
+4. **权限**: 迁移后需要重新设置用户权限
+5. **配置**: 根据新环境调整MySQL配置
 
 ## 故障排除
 
 ### 常见问题
 
-1. **认证失败**: 检查阿里云OSS和百度云盘的访问凭证
-2. **权限不足**: 确保有足够的OSS和百度云盘权限
-3. **存储空间不足**: 检查本地临时目录的可用空间
-4. **网络超时**: 检查网络连接，考虑使用代理
+1. **权限错误**
+   ```bash
+   sudo chown -R mysql:mysql /var/lib/mysql
+   sudo chmod -R 755 /var/lib/mysql
+   ```
 
-### 调试模式
+2. **字符集问题**
+   ```sql
+   ALTER DATABASE database_name CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
 
-启用详细日志：
+3. **存储引擎问题**
+   ```sql
+   ALTER TABLE table_name ENGINE=InnoDB;
+   ```
 
-```python
-logging.basicConfig(level=logging.DEBUG)
+### 验证迁移结果
+
+```bash
+# 检查数据库
+mysql -u root -p -e "SHOW DATABASES;"
+
+# 检查表
+mysql -u root -p -e "USE your_database; SHOW TABLES;"
+
+# 检查数据
+mysql -u root -p -e "USE your_database; SELECT COUNT(*) FROM your_table;"
 ```
+
+## 性能优化
+
+迁移完成后，建议进行以下优化：
+
+1. **重建索引**
+   ```sql
+   OPTIMIZE TABLE table_name;
+   ```
+
+2. **调整MySQL配置**
+   ```ini
+   # /etc/mysql/mysql.conf.d/mysqld.cnf
+   innodb_buffer_pool_size = 1G
+   innodb_log_file_size = 256M
+   max_connections = 200
+   ```
+
+3. **分析查询性能**
+   ```sql
+   ANALYZE TABLE table_name;
+   ```
+
+## 支持
+
+如果遇到问题，请检查：
+1. 系统日志: `journalctl -u mysql`
+2. MySQL错误日志: `/var/log/mysql/error.log`
+3. 数据目录权限
+4. 磁盘空间
 
 ## 许可证
 
-MIT License
-=======
-# OSS文件归档脚本
-
-这个脚本用于将阿里云OSS中24个月前的按日创建的文件夹打包上传到百度云盘，然后删除OSS中的原始文件。
-
-## 功能特性
-
-- 自动识别OSS中按日创建的文件夹
-- 筛选24个月前的文件夹进行归档
-- 将文件夹内容打包成ZIP文件
-- 上传ZIP文件到百度云盘
-- 删除OSS中的原始文件
-- 完整的错误处理和日志记录
-
-## 安装依赖
-
-```bash
-pip install -r requirements.txt
-```
-
-## 配置
-
-1. 运行脚本会自动创建 `config.json` 配置文件
-2. 编辑配置文件，填入正确的OSS和百度云盘信息：
-
-```json
-{
-    "oss": {
-        "endpoint": "your-oss-endpoint",
-        "bucket_name": "your-bucket-name",
-        "access_key_id": "your-access-key-id",
-        "access_key_secret": "your-access-key-secret"
-    },
-    "baidu": {
-        "app_id": "your-baidu-app-id",
-        "app_key": "your-baidu-app-key",
-        "secret_key": "your-baidu-secret-key"
-    },
-    "archive": {
-        "months_threshold": 24,
-        "temp_dir": "./temp_archive",
-        "baidu_upload_path": "/OSS_Archive"
-    }
-}
-```
-
-## 百度云盘配置
-
-使用bypy库需要先进行授权：
-
-```bash
-bypy info
-```
-
-按照提示完成百度云盘的授权配置。
-
-## 使用方法
-
-```bash
-python oss_archive_script.py
-```
-
-## 注意事项
-
-1. 确保有足够的磁盘空间用于临时文件
-2. 确保OSS和百度云盘的访问权限正确
-3. 建议先在测试环境验证脚本功能
-4. 脚本会生成详细的日志文件 `oss_archive.log`
-
-## 文件夹结构假设
-
-脚本假设OSS中的文件夹结构为：
-```
-bucket_name/
-├── folder_name1/
-│   ├── 2022-01-01/
-│   │   ├── file1.txt
-│   │   └── file2.txt
-│   └── 2022-01-02/
-│       └── file3.txt
-└── folder_name2/
-    └── 2022-02-01/
-        └── file4.txt
-```
-
-如果您的文件夹结构不同，请修改 `get_old_folders` 方法中的解析逻辑。
-
+本工具包遵循MIT许可证。
