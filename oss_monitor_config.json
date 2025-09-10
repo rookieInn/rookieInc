@@ -1,0 +1,51 @@
+{
+    "buckets": [
+        {
+            "name": "your-bucket-1",
+            "endpoint": "https://oss-cn-hangzhou.aliyuncs.com",
+            "access_key_id": "your-access-key-id",
+            "access_key_secret": "your-access-key-secret",
+            "description": "主存储桶"
+        },
+        {
+            "name": "your-bucket-2",
+            "endpoint": "https://oss-cn-beijing.aliyuncs.com",
+            "access_key_id": "your-access-key-id-2",
+            "access_key_secret": "your-access-key-secret-2",
+            "description": "备份存储桶"
+        }
+    ],
+    "monitoring": {
+        "check_interval_hours": 24,
+        "retention_days": 365,
+        "alert_threshold_gb": 1000,
+        "enable_daily_reports": true
+    },
+    "database": {
+        "path": "oss_monitor.db",
+        "backup_interval_days": 7
+    },
+    "reports": {
+        "output_dir": "./reports",
+        "generate_charts": true,
+        "chart_format": "png"
+    },
+    "scheduler": {
+        "check_interval": "daily",
+        "check_time": "02:00",
+        "report_interval": "weekly",
+        "report_time": "09:00",
+        "cleanup_interval": "monthly",
+        "cleanup_time": "03:00",
+        "enable_notifications": true,
+        "notification_webhook": "",
+        "max_retries": 3,
+        "retry_delay": 300
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "oss_monitor.log",
+        "max_size_mb": 10,
+        "backup_count": 5
+    }
+}

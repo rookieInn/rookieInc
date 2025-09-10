@@ -24,3 +24,12 @@ seaborn==0.12.2
 =======
 bypy>=1.7.11
 
+# OSS存储监控系统依赖
+oss2==2.18.4
+pandas==2.1.4
+matplotlib==3.7.2
+seaborn==0.12.2
+flask==3.0.0
+flask-cors==4.0.0
+schedule==1.2.0
+
