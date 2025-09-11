@@ -1,35 +1,9 @@
-oss2==2.18.4
-requests==2.31.0
-python-dateutil==2.8.2
-tqdm==4.66.1
-configparser==6.0.0
-# 可选：其他数据库支持
-# psycopg2-binary==2.9.9  # PostgreSQL
-# cx_Oracle==8.3.0        # Oracle
-
-# 文本转GIF生成器所需依赖
-Pillow==10.1.0
+opencv-python==4.8.1.78
+dlib==19.24.2
 numpy==1.24.3
-
-# 页面埋点统计所需依赖
-pymongo==4.6.0
-flask==3.0.0
-flask-cors==4.0.0
-python-dateutil==2.8.2
-
-# 数据分析和可视化
-pandas==2.1.4
+imutils==0.5.4
+scipy==1.11.3
+tensorflow-gpu==2.13.0
+mediapipe==0.10.7
+pillow==10.0.1
 matplotlib==3.7.2
-seaborn==0.12.2
-=======
-bypy>=1.7.11
-
-# OSS存储监控系统依赖
-oss2==2.18.4
-pandas==2.1.4
-matplotlib==3.7.2
-seaborn==0.12.2
-flask==3.0.0
-flask-cors==4.0.0
-schedule==1.2.0
-

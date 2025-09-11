@@ -1,131 +1,140 @@
-# MariaDB到MySQL迁移工具包
+# 人脸识别和活体检测系统
 
-本工具包提供了将MariaDB数据库迁移到MySQL的完整解决方案，特别适用于MariaDB服务无法启动的情况。
+这是一个基于Python和GPU的人脸识别和活体检测系统，支持张嘴检测和眨眼检测。
 
-## 文件说明
+## 功能特性
 
-### 主要脚本
-- `mariadb_to_mysql_migration.sh` - 自动迁移脚本（包含测试数据）
-- `migrate_existing_mariadb.sh` - 迁移现有MariaDB数据文件
-- `example_usage.sh` - 使用示例和说明
+- ✅ **人脸检测**: 使用MediaPipe和dlib双重检测
+- ✅ **眨眼检测**: 基于眼睛纵横比(EAR)的实时眨眼检测
+- ✅ **张嘴检测**: 基于嘴部纵横比(MAR)的实时张嘴检测
+- ✅ **GPU加速**: 支持TensorFlow GPU加速
+- ✅ **实时处理**: 支持摄像头实时检测
+- ✅ **多模型支持**: MediaPipe + dlib双重保障
 
-### 文档
-- `manual_migration_guide.md` - 详细的手动迁移指南
-- `README.md` - 本说明文档
+## 技术栈
 
-## 快速开始
+- **OpenCV**: 图像处理和摄像头操作
+- **MediaPipe**: Google的人脸检测和关键点提取
+- **dlib**: 传统计算机视觉库，作为备用检测器
+- **TensorFlow**: GPU加速支持
+- **NumPy**: 数值计算
+- **SciPy**: 距离计算
 
-### 方法1: 自动迁移（推荐用于测试）
+## 安装依赖
+
 ```bash
-sudo ./mariadb_to_mysql_migration.sh
+pip install -r requirements.txt
 ```
 
-### 方法2: 迁移现有数据文件
-```bash
-# 如果您的MariaDB数据目录在 /var/lib/mysql
-sudo ./migrate_existing_mariadb.sh /var/lib/mysql my_database
+## 使用方法
 
-# 如果您的MariaDB数据目录在其他位置
-sudo ./migrate_existing_mariadb.sh /path/to/mariadb/data my_database
+### 1. 实时摄像头检测
+
+```bash
+python face_liveness_detection.py
 ```
 
-### 方法3: 手动迁移
+### 2. 运行测试
+
 ```bash
-# 1. 导出MariaDB数据
-mysqldump -u root -p --all-databases > mariadb_export.sql
-
-# 2. 启动MySQL
-sudo systemctl start mysql
-
-# 3. 导入数据
-mysql -u root -p < mariadb_export.sql
+python test_liveness_detection.py
 ```
 
-## 迁移方法对比
+### 3. 在代码中使用
 
-| 方法 | 优点 | 缺点 | 适用场景 |
-|------|------|------|----------|
-| mysqldump | 兼容性好，数据完整 | 需要MariaDB运行 | MariaDB可启动 |
-| 文件复制 | 速度快，无需启动MariaDB | 可能有兼容性问题 | MariaDB无法启动 |
-| Docker容器 | 隔离环境，易于测试 | 需要Docker | 测试环境 |
+```python
+from face_liveness_detection import FaceLivenessDetector
+
+# 创建检测器
+detector = FaceLivenessDetector(use_gpu=True)
+
+# 检测单张图像
+import cv2
+image = cv2.imread("your_image.jpg")
+results = detector.detect_liveness(image)
+
+print(f"人脸检测: {results['face_detected']}")
+print(f"眨眼检测: {results['blink_detected']}")
+print(f"张嘴检测: {results['mouth_open_detected']}")
+```
+
+## 检测原理
+
+### 眨眼检测 (EAR - Eye Aspect Ratio)
+
+眨眼检测基于眼睛纵横比(EAR)算法：
+
+```
+EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
+```
+
+其中p1-p6是眼睛关键点的坐标。当EAR低于阈值时，表示眼睛闭合。
+
+### 张嘴检测 (MAR - Mouth Aspect Ratio)
+
+张嘴检测基于嘴部纵横比(MAR)算法：
+
+```
+MAR = (|p2-p10| + |p4-p8|) / (2 * |p1-p7|)
+```
+
+其中p1-p10是嘴部关键点的坐标。当MAR高于阈值时，表示嘴巴张开。
+
+## 参数调优
+
+可以在`FaceLivenessDetector`类中调整以下参数：
+
+```python
+# 眨眼检测参数
+self.EAR_THRESHOLD = 0.25  # 眼睛纵横比阈值
+self.EAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
+
+# 张嘴检测参数
+self.MAR_THRESHOLD = 0.5  # 嘴部纵横比阈值
+self.MAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
+```
+
+## 性能优化
+
+1. **GPU加速**: 系统自动检测并使用GPU加速
+2. **多模型支持**: MediaPipe作为主要检测器，dlib作为备用
+3. **实时处理**: 优化的算法确保实时性能
 
 ## 系统要求
 
-- Ubuntu/Debian系统
-- Root权限
-- 足够的磁盘空间（至少是原数据库大小的2倍）
+- Python 3.7+
+- OpenCV 4.x
+- CUDA支持的GPU (可选)
+- 摄像头设备
 
 ## 注意事项
 
-1. **备份数据**: 迁移前务必备份原始数据
-2. **版本兼容性**: 确保MariaDB和MySQL版本兼容
-3. **字符集**: 检查并统一字符集设置
-4. **权限**: 迁移后需要重新设置用户权限
-5. **配置**: 根据新环境调整MySQL配置
+1. 首次运行会自动下载dlib预训练模型
+2. 确保摄像头权限已开启
+3. 在光线充足的环境下效果更佳
+4. 建议人脸距离摄像头30-60cm
 
 ## 故障排除
 
 ### 常见问题
 
-1. **权限错误**
-   ```bash
-   sudo chown -R mysql:mysql /var/lib/mysql
-   sudo chmod -R 755 /var/lib/mysql
-   ```
+1. **GPU不可用**: 系统会自动回退到CPU模式
+2. **摄像头无法打开**: 检查摄像头权限和设备连接
+3. **检测精度低**: 调整阈值参数或改善光线条件
 
-2. **字符集问题**
-   ```sql
-   ALTER DATABASE database_name CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   ```
+### 调试模式
 
-3. **存储引擎问题**
-   ```sql
-   ALTER TABLE table_name ENGINE=InnoDB;
-   ```
+在代码中设置调试模式：
 
-### 验证迁移结果
-
-```bash
-# 检查数据库
-mysql -u root -p -e "SHOW DATABASES;"
-
-# 检查表
-mysql -u root -p -e "USE your_database; SHOW TABLES;"
-
-# 检查数据
-mysql -u root -p -e "USE your_database; SELECT COUNT(*) FROM your_table;"
+```python
+detector = FaceLivenessDetector(use_gpu=True)
+# 启用详细日志输出
 ```
-
-## 性能优化
-
-迁移完成后，建议进行以下优化：
-
-1. **重建索引**
-   ```sql
-   OPTIMIZE TABLE table_name;
-   ```
-
-2. **调整MySQL配置**
-   ```ini
-   # /etc/mysql/mysql.conf.d/mysqld.cnf
-   innodb_buffer_pool_size = 1G
-   innodb_log_file_size = 256M
-   max_connections = 200
-   ```
-
-3. **分析查询性能**
-   ```sql
-   ANALYZE TABLE table_name;
-   ```
-
-## 支持
-
-如果遇到问题，请检查：
-1. 系统日志: `journalctl -u mysql`
-2. MySQL错误日志: `/var/log/mysql/error.log`
-3. 数据目录权限
-4. 磁盘空间
 
 ## 许可证
 
-本工具包遵循MIT许可证。
+MIT License
+
+## 贡献
+
+欢迎提交Issue和Pull Request来改进这个项目。
