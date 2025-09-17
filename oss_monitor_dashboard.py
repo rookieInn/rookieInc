@@ -72,6 +72,29 @@ class OSSMonitorDashboard:
             """主页"""
             return render_template('dashboard.html')
         
+        @self.app.route('/health')
+        def health_check():
+            """健康检查接口"""
+            try:
+                # 测试数据库连接
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                cursor.execute('SELECT COUNT(*) FROM storage_stats')
+                conn.close()
+                
+                return jsonify({
+                    'status': 'healthy',
+                    'database': 'connected',
+                    'timestamp': datetime.now().isoformat()
+                }), 200
+            except Exception as e:
+                return jsonify({
+                    'status': 'unhealthy',
+                    'database': 'error',
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }), 500
+
         @self.app.route('/api/buckets')
         def get_buckets():
             """获取桶列表"""

@@ -1,0 +1,59 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus自身监控
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # OSS监控服务
+  - job_name: 'oss-monitor'
+    static_configs:
+      - targets: ['oss-monitor:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # 页面埋点API服务
+  - job_name: 'tracking-api'
+    static_configs:
+      - targets: ['tracking-api:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # 视频水印服务
+  - job_name: 'video-watermark'
+    static_configs:
+      - targets: ['video-watermark:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # 微信群机器人服务
+  - job_name: 'wechat-bot'
+    static_configs:
+      - targets: ['wechat-bot:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # MySQL数据库
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['mysql:3306']
+    scrape_interval: 30s
+
+  # Redis缓存
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+
+  # MongoDB数据库
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: ['mongodb:27017']
+    scrape_interval: 30s
