@@ -1,23 +1,88 @@
 version: '3.8'
 
 services:
-  wechat-chatgpt-bot:
-    build: .
-    container_name: wechat-chatgpt-bot
+  # MongoDB数据库
+  mongodb:
+    image: mongo:7.0
+    container_name: live-streaming-mongodb
     restart: unless-stopped
+    ports:
+      - "27017:27017"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - WECHAT_AUTO_REPLY=true
-      - WECHAT_REPLY_GROUPS=true
-      - WECHAT_REPLY_PRIVATE=true
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: live_streaming_admin
     volumes:
-      - ./bot_config.ini:/app/bot_config.ini
-      - ./bot_config_advanced.ini:/app/bot_config_advanced.ini
-      - ./logs:/app/logs
-      - ./data:/app/data
+      - mongodb_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     networks:
-      - wechat-bot-network
+      - live-streaming-network
+
+  # Redis缓存
+  redis:
+    image: redis:7.2-alpine
+    container_name: live-streaming-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - live-streaming-network
+
+  # 直播管理后台应用
+  app:
+    build: .
+    container_name: live-streaming-admin
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/live_streaming_admin?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=live-streaming-admin-super-secret-key-2024
+      - JWT_EXPIRES_IN=7d
+      - UPLOAD_DIR=uploads
+      - MAX_FILE_SIZE=10485760
+      - LOG_LEVEL=info
+      - LOG_FILE=logs/app.log
+      - BCRYPT_ROUNDS=12
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX_REQUESTS=100
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - live-streaming-network
+
+  # Nginx反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: live-streaming-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - live-streaming-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
-  wechat-bot-network:
+  live-streaming-network:
     driver: bridge
