@@ -1,140 +1,102 @@
-# 人脸识别和活体检测系统
+# 短链接生成服务
 
-这是一个基于Python和GPU的人脸识别和活体检测系统，支持张嘴检测和眨眼检测。
+一个高性能、可扩展的短链接生成服务，支持URL缩短、重定向、统计分析和缓存优化。
 
 ## 功能特性
 
-- ✅ **人脸检测**: 使用MediaPipe和dlib双重检测
-- ✅ **眨眼检测**: 基于眼睛纵横比(EAR)的实时眨眼检测
-- ✅ **张嘴检测**: 基于嘴部纵横比(MAR)的实时张嘴检测
-- ✅ **GPU加速**: 支持TensorFlow GPU加速
-- ✅ **实时处理**: 支持摄像头实时检测
-- ✅ **多模型支持**: MediaPipe + dlib双重保障
+- **高性能**: 基于自增ID + Base62编码算法
+- **高可用**: 支持分布式部署和故障转移
+- **缓存优化**: 多级缓存策略提升响应速度
+- **统计分析**: 访问量统计和数据分析
+- **安全防护**: 防刷机制和恶意URL检测
+- **监控告警**: 完整的监控和日志系统
 
-## 技术栈
+## 技术架构
 
-- **OpenCV**: 图像处理和摄像头操作
-- **MediaPipe**: Google的人脸检测和关键点提取
-- **dlib**: 传统计算机视觉库，作为备用检测器
-- **TensorFlow**: GPU加速支持
-- **NumPy**: 数值计算
-- **SciPy**: 距离计算
+### 核心算法
+- **短码生成**: 自增ID + Base62编码
+- **冲突处理**: 数据库唯一约束 + 重试机制
+- **性能优化**: 批量ID预分配
 
-## 安装依赖
+### 存储方案
+- **主存储**: MySQL (持久化存储)
+- **缓存层**: Redis (热点数据缓存)
+- **本地缓存**: Caffeine (JVM内缓存)
 
+### 缓存策略
+- **L1缓存**: 本地缓存 (1分钟TTL)
+- **L2缓存**: Redis缓存 (1小时TTL)
+- **L3存储**: MySQL数据库 (持久化)
+
+## 项目结构
+
+```
+shorturl-service/
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   └── com/shorturl/
+│   │   │       ├── ShortUrlServiceApplication.java
+│   │   │       ├── algorithm/          # 短码生成算法
+│   │   │       ├── cache/             # 缓存管理
+│   │   │       ├── config/            # 配置类
+│   │   │       ├── controller/        # REST API
+│   │   │       ├── entity/            # 数据实体
+│   │   │       ├── repository/        # 数据访问层
+│   │   │       ├── service/           # 业务逻辑层
+│   │   │       └── util/              # 工具类
+│   │   └── resources/
+│   │       ├── application.yml
+│   │       └── db/migration/          # 数据库迁移脚本
+│   └── test/
+├── docker-compose.yml
+├── Dockerfile
+└── pom.xml
+```
+
+## 快速开始
+
+### 环境要求
+- Java 17+
+- MySQL 8.0+
+- Redis 6.0+
+- Maven 3.6+
+
+### 本地开发
 ```bash
-pip install -r requirements.txt
+# 启动依赖服务
+docker-compose up -d mysql redis
+
+# 编译运行
+mvn clean package
+java -jar target/shorturl-service-1.0.0.jar
 ```
 
-## 使用方法
+### API使用示例
 
-### 1. 实时摄像头检测
-
+#### 生成短链接
 ```bash
-python face_liveness_detection.py
+curl -X POST http://localhost:8080/api/shorten \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.example.com/very/long/url"}'
 ```
 
-### 2. 运行测试
-
+#### 访问短链接
 ```bash
-python test_liveness_detection.py
+curl -X GET http://localhost:8080/s/abc123
 ```
 
-### 3. 在代码中使用
+## 性能指标
 
-```python
-from face_liveness_detection import FaceLivenessDetector
+- **生成速度**: >10,000 QPS
+- **重定向速度**: >50,000 QPS  
+- **缓存命中率**: >95%
+- **可用性**: 99.9%
 
-# 创建检测器
-detector = FaceLivenessDetector(use_gpu=True)
+## 监控指标
 
-# 检测单张图像
-import cv2
-image = cv2.imread("your_image.jpg")
-results = detector.detect_liveness(image)
-
-print(f"人脸检测: {results['face_detected']}")
-print(f"眨眼检测: {results['blink_detected']}")
-print(f"张嘴检测: {results['mouth_open_detected']}")
-```
-
-## 检测原理
-
-### 眨眼检测 (EAR - Eye Aspect Ratio)
-
-眨眼检测基于眼睛纵横比(EAR)算法：
-
-```
-EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
-```
-
-其中p1-p6是眼睛关键点的坐标。当EAR低于阈值时，表示眼睛闭合。
-
-### 张嘴检测 (MAR - Mouth Aspect Ratio)
-
-张嘴检测基于嘴部纵横比(MAR)算法：
-
-```
-MAR = (|p2-p10| + |p4-p8|) / (2 * |p1-p7|)
-```
-
-其中p1-p10是嘴部关键点的坐标。当MAR高于阈值时，表示嘴巴张开。
-
-## 参数调优
-
-可以在`FaceLivenessDetector`类中调整以下参数：
-
-```python
-# 眨眼检测参数
-self.EAR_THRESHOLD = 0.25  # 眼睛纵横比阈值
-self.EAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
-
-# 张嘴检测参数
-self.MAR_THRESHOLD = 0.5  # 嘴部纵横比阈值
-self.MAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
-```
-
-## 性能优化
-
-1. **GPU加速**: 系统自动检测并使用GPU加速
-2. **多模型支持**: MediaPipe作为主要检测器，dlib作为备用
-3. **实时处理**: 优化的算法确保实时性能
-
-## 系统要求
-
-- Python 3.7+
-- OpenCV 4.x
-- CUDA支持的GPU (可选)
-- 摄像头设备
-
-## 注意事项
-
-1. 首次运行会自动下载dlib预训练模型
-2. 确保摄像头权限已开启
-3. 在光线充足的环境下效果更佳
-4. 建议人脸距离摄像头30-60cm
-
-## 故障排除
-
-### 常见问题
-
-1. **GPU不可用**: 系统会自动回退到CPU模式
-2. **摄像头无法打开**: 检查摄像头权限和设备连接
-3. **检测精度低**: 调整阈值参数或改善光线条件
-
-### 调试模式
-
-在代码中设置调试模式：
-
-```python
-detector = FaceLivenessDetector(use_gpu=True)
-# 启用详细日志输出
-```
-
-## 许可证
-
-MIT License
-
-## 贡献
-
-欢迎提交Issue和Pull Request来改进这个项目。
+- 请求QPS和响应时间
+- 缓存命中率和失效率
+- 数据库连接池状态
+- 系统资源使用率
+- 错误率和异常统计
