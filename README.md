@@ -1,140 +1,170 @@
-# 人脸识别和活体检测系统
+# 微信公众号API代理服务器
 
-这是一个基于Python和GPU的人脸识别和活体检测系统，支持张嘴检测和眨眼检测。
+这是一个用于海外服务器通过阿里云服务器访问微信公众号接口的代理程序。
 
 ## 功能特性
 
-- ✅ **人脸检测**: 使用MediaPipe和dlib双重检测
-- ✅ **眨眼检测**: 基于眼睛纵横比(EAR)的实时眨眼检测
-- ✅ **张嘴检测**: 基于嘴部纵横比(MAR)的实时张嘴检测
-- ✅ **GPU加速**: 支持TensorFlow GPU加速
-- ✅ **实时处理**: 支持摄像头实时检测
-- ✅ **多模型支持**: MediaPipe + dlib双重保障
+- 🔄 **请求代理**: 将海外服务器的请求转发到微信公众号API
+- 🔒 **安全控制**: 支持IP白名单和API密钥验证
+- 📊 **日志记录**: 完整的请求和响应日志
+- ⚡ **高性能**: 基于aiohttp的异步处理
+- 🔄 **重试机制**: 自动重试失败的请求
+- 🌐 **CORS支持**: 支持跨域请求
 
-## 技术栈
+## 部署步骤
 
-- **OpenCV**: 图像处理和摄像头操作
-- **MediaPipe**: Google的人脸检测和关键点提取
-- **dlib**: 传统计算机视觉库，作为备用检测器
-- **TensorFlow**: GPU加速支持
-- **NumPy**: 数值计算
-- **SciPy**: 距离计算
-
-## 安装依赖
+### 1. 在阿里云服务器上部署代理
 
 ```bash
+# 1. 安装Python依赖
 pip install -r requirements.txt
+
+# 2. 配置config.yaml文件
+# 编辑config.yaml，设置允许的IP地址和API密钥
+
+# 3. 启动代理服务器
+python wechat_proxy.py
 ```
 
-## 使用方法
+### 2. 配置微信公众号后台
 
-### 1. 实时摄像头检测
+1. 登录微信公众号后台
+2. 进入"基本配置" -> "IP白名单"
+3. 添加阿里云服务器的公网IP地址
 
-```bash
-python face_liveness_detection.py
-```
-
-### 2. 运行测试
-
-```bash
-python test_liveness_detection.py
-```
-
-### 3. 在代码中使用
+### 3. 在海外服务器上使用代理
 
 ```python
-from face_liveness_detection import FaceLivenessDetector
+# 使用示例
+import asyncio
+from client_example import WeChatClient
 
-# 创建检测器
-detector = FaceLivenessDetector(use_gpu=True)
+async def main():
+    proxy_url = "http://your-aliyun-server:8080"
+    async with WeChatClient(proxy_url) as client:
+        # 调用微信公众号API
+        result = await client.get_access_token("your-appid", "your-secret")
+        print(result)
 
-# 检测单张图像
-import cv2
-image = cv2.imread("your_image.jpg")
-results = detector.detect_liveness(image)
-
-print(f"人脸检测: {results['face_detected']}")
-print(f"眨眼检测: {results['blink_detected']}")
-print(f"张嘴检测: {results['mouth_open_detected']}")
+asyncio.run(main())
 ```
 
-## 检测原理
+## 配置文件说明
 
-### 眨眼检测 (EAR - Eye Aspect Ratio)
+### config.yaml
 
-眨眼检测基于眼睛纵横比(EAR)算法：
+```yaml
+server:
+  host: "0.0.0.0"  # 监听地址
+  port: 8080       # 监听端口
+
+security:
+  allowed_ips:     # 允许访问的IP列表
+    - "1.2.3.4"    # 海外服务器IP
+  api_key: ""      # API密钥（可选）
+
+wechat:
+  timeout: 30      # 请求超时时间
+  retry_times: 3   # 重试次数
+```
+
+## API接口
+
+### 代理接口
+
+所有微信公众号API都可以通过代理访问：
 
 ```
-EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
+GET/POST http://your-aliyun-server:8080/{wechat-api-path}
 ```
 
-其中p1-p6是眼睛关键点的坐标。当EAR低于阈值时，表示眼睛闭合。
+例如：
+- 获取access_token: `GET /cgi-bin/token?grant_type=client_credential&appid=xxx&secret=xxx`
+- 发送模板消息: `POST /cgi-bin/message/template/send?access_token=xxx`
 
-### 张嘴检测 (MAR - Mouth Aspect Ratio)
+### 管理接口
 
-张嘴检测基于嘴部纵横比(MAR)算法：
+- 健康检查: `GET /health`
+- 统计信息: `GET /stats`
 
+## 安全配置
+
+### IP白名单
+
+在`config.yaml`中配置`allowed_ips`，只允许指定的IP访问代理：
+
+```yaml
+security:
+  allowed_ips:
+    - "1.2.3.4"    # 海外服务器IP1
+    - "5.6.7.8"    # 海外服务器IP2
 ```
-MAR = (|p2-p10| + |p4-p8|) / (2 * |p1-p7|)
-```
 
-其中p1-p10是嘴部关键点的坐标。当MAR高于阈值时，表示嘴巴张开。
+### API密钥验证
 
-## 参数调优
-
-可以在`FaceLivenessDetector`类中调整以下参数：
+设置API密钥后，客户端需要在请求头或查询参数中提供：
 
 ```python
-# 眨眼检测参数
-self.EAR_THRESHOLD = 0.25  # 眼睛纵横比阈值
-self.EAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
+# 方式1：请求头
+headers = {'X-API-Key': 'your-api-key'}
 
-# 张嘴检测参数
-self.MAR_THRESHOLD = 0.5  # 嘴部纵横比阈值
-self.MAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
+# 方式2：查询参数
+url = "http://proxy-server:8080/api?api_key=your-api-key"
 ```
 
-## 性能优化
+## 监控和日志
 
-1. **GPU加速**: 系统自动检测并使用GPU加速
-2. **多模型支持**: MediaPipe作为主要检测器，dlib作为备用
-3. **实时处理**: 优化的算法确保实时性能
+### 日志文件
 
-## 系统要求
+- 代理服务器日志: `wechat_proxy.log`
+- 控制台输出: 实时显示请求和错误信息
 
-- Python 3.7+
-- OpenCV 4.x
-- CUDA支持的GPU (可选)
-- 摄像头设备
+### 监控接口
 
-## 注意事项
+```bash
+# 健康检查
+curl http://your-aliyun-server:8080/health
 
-1. 首次运行会自动下载dlib预训练模型
-2. 确保摄像头权限已开启
-3. 在光线充足的环境下效果更佳
-4. 建议人脸距离摄像头30-60cm
+# 统计信息
+curl http://your-aliyun-server:8080/stats
+```
 
 ## 故障排除
 
 ### 常见问题
 
-1. **GPU不可用**: 系统会自动回退到CPU模式
-2. **摄像头无法打开**: 检查摄像头权限和设备连接
-3. **检测精度低**: 调整阈值参数或改善光线条件
+1. **连接被拒绝**
+   - 检查阿里云服务器防火墙设置
+   - 确认代理服务器正在运行
+
+2. **IP不在白名单**
+   - 检查`config.yaml`中的`allowed_ips`配置
+   - 确认海外服务器IP地址正确
+
+3. **API密钥验证失败**
+   - 检查客户端是否正确提供API密钥
+   - 确认服务端和客户端密钥一致
+
+4. **请求超时**
+   - 检查网络连接
+   - 调整`config.yaml`中的`timeout`设置
 
 ### 调试模式
 
-在代码中设置调试模式：
+启用详细日志：
 
-```python
-detector = FaceLivenessDetector(use_gpu=True)
-# 启用详细日志输出
+```yaml
+logging:
+  level: "DEBUG"
+  log_requests: true
 ```
+
+## 性能优化
+
+1. **调整并发数**: 根据服务器性能调整aiohttp的并发设置
+2. **缓存access_token**: 客户端应该缓存access_token，避免频繁请求
+3. **连接池**: 使用连接池复用HTTP连接
 
 ## 许可证
 
 MIT License
-
-## 贡献
-
-欢迎提交Issue和Pull Request来改进这个项目。

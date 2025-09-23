@@ -1,23 +1,20 @@
 version: '3.8'
 
 services:
-  wechat-chatgpt-bot:
+  wechat-proxy:
     build: .
-    container_name: wechat-chatgpt-bot
-    restart: unless-stopped
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - WECHAT_AUTO_REPLY=true
-      - WECHAT_REPLY_GROUPS=true
-      - WECHAT_REPLY_PRIVATE=true
+    container_name: wechat-proxy
+    ports:
+      - "8080:8080"
     volumes:
-      - ./bot_config.ini:/app/bot_config.ini
-      - ./bot_config_advanced.ini:/app/bot_config_advanced.ini
+      - ./config.yaml:/app/config.yaml
       - ./logs:/app/logs
-      - ./data:/app/data
-    networks:
-      - wechat-bot-network
-
-networks:
-  wechat-bot-network:
-    driver: bridge
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

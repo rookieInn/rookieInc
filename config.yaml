@@ -1,0 +1,34 @@
+# 微信公众号代理服务器配置文件
+
+# 服务器配置
+server:
+  host: "0.0.0.0"  # 监听所有IP
+  port: 8080       # 监听端口
+
+# 安全配置
+security:
+  # 允许访问的IP列表，空列表表示允许所有IP
+  # 建议配置海外服务器的IP地址
+  allowed_ips:
+    - "1.2.3.4"    # 示例：海外服务器IP1
+    - "5.6.7.8"    # 示例：海外服务器IP2
+    # 如果允许所有IP，可以注释掉上面的配置或留空
+  
+  # API密钥，用于验证请求（可选）
+  # 如果设置了密钥，客户端需要在请求头或查询参数中提供
+  api_key: ""  # 留空表示不验证API密钥
+  
+  # 速率限制配置
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100  # 每分钟最大请求数
+
+# 微信公众号API配置
+wechat:
+  timeout: 30      # 请求超时时间（秒）
+  retry_times: 3   # 重试次数
+
+# 日志配置
+logging:
+  level: "INFO"        # 日志级别：DEBUG, INFO, WARNING, ERROR
+  log_requests: true   # 是否记录请求日志
