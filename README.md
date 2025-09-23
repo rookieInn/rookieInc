@@ -1,140 +1,197 @@
-# 人脸识别和活体检测系统
+# Python协程使用指南
 
-这是一个基于Python和GPU的人脸识别和活体检测系统，支持张嘴检测和眨眼检测。
+本仓库包含了Python协程的完整使用示例和最佳实践，涵盖了从基础概念到实际应用的各个方面。
 
-## 功能特性
+## 文件说明
 
-- ✅ **人脸检测**: 使用MediaPipe和dlib双重检测
-- ✅ **眨眼检测**: 基于眼睛纵横比(EAR)的实时眨眼检测
-- ✅ **张嘴检测**: 基于嘴部纵横比(MAR)的实时张嘴检测
-- ✅ **GPU加速**: 支持TensorFlow GPU加速
-- ✅ **实时处理**: 支持摄像头实时检测
-- ✅ **多模型支持**: MediaPipe + dlib双重保障
+### 1. `coroutine_basics.py` - 协程基础
+- 协程函数定义和基本用法
+- `async`/`await` 关键字使用
+- 协程并发执行
+- 异常处理和超时控制
+- 协程生成器和同步原语
 
-## 技术栈
+### 2. `async_await_syntax.py` - async/await语法详解
+- `async def` 定义协程函数
+- `await` 关键字的各种用法
+- 协程中的控制结构（循环、条件）
+- 嵌套协程和协程装饰器
+- 协程类方法和最佳实践
 
-- **OpenCV**: 图像处理和摄像头操作
-- **MediaPipe**: Google的人脸检测和关键点提取
-- **dlib**: 传统计算机视觉库，作为备用检测器
-- **TensorFlow**: GPU加速支持
-- **NumPy**: 数值计算
-- **SciPy**: 距离计算
+### 3. `concurrent_coroutines.py` - 协程并发执行
+- 基础并发示例
+- `asyncio.gather` 的不同使用方式
+- `asyncio.create_task` 创建任务
+- 任务取消和超时控制
+- 协程池和限制并发数
+- 生产者-消费者模式
+- 协程间通信和性能对比
 
-## 安装依赖
+### 4. `asyncio_tools.py` - asyncio工具详解
+- `asyncio.gather` 详细用法和高级特性
+- `asyncio.create_task` 任务管理
+- 任务组合模式和错误处理
+- 性能优化技巧
+- 重试机制和批量处理
 
+### 5. `real_world_examples.py` - 实际应用场景
+- 网络爬虫实现
+- 异步数据库操作
+- 文件批量处理
+- API服务开发
+- 实时数据处理
+- 微服务通信
+- 缓存系统实现
+
+## 快速开始
+
+### 安装依赖
 ```bash
 pip install -r requirements.txt
 ```
 
-## 使用方法
-
-### 1. 实时摄像头检测
-
+### 运行示例
 ```bash
-python face_liveness_detection.py
+# 运行基础协程示例
+python coroutine_basics.py
+
+# 运行async/await语法示例
+python async_await_syntax.py
+
+# 运行并发协程示例
+python concurrent_coroutines.py
+
+# 运行asyncio工具示例
+python asyncio_tools.py
+
+# 运行实际应用示例
+python real_world_examples.py
 ```
 
-### 2. 运行测试
+## 核心概念
 
-```bash
-python test_liveness_detection.py
-```
-
-### 3. 在代码中使用
-
+### 1. 协程函数
 ```python
-from face_liveness_detection import FaceLivenessDetector
-
-# 创建检测器
-detector = FaceLivenessDetector(use_gpu=True)
-
-# 检测单张图像
-import cv2
-image = cv2.imread("your_image.jpg")
-results = detector.detect_liveness(image)
-
-print(f"人脸检测: {results['face_detected']}")
-print(f"眨眼检测: {results['blink_detected']}")
-print(f"张嘴检测: {results['mouth_open_detected']}")
+async def my_coroutine():
+    print("这是一个协程函数")
+    await asyncio.sleep(1)
+    return "协程返回值"
 ```
 
-## 检测原理
-
-### 眨眼检测 (EAR - Eye Aspect Ratio)
-
-眨眼检测基于眼睛纵横比(EAR)算法：
-
-```
-EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
-```
-
-其中p1-p6是眼睛关键点的坐标。当EAR低于阈值时，表示眼睛闭合。
-
-### 张嘴检测 (MAR - Mouth Aspect Ratio)
-
-张嘴检测基于嘴部纵横比(MAR)算法：
-
-```
-MAR = (|p2-p10| + |p4-p8|) / (2 * |p1-p7|)
-```
-
-其中p1-p10是嘴部关键点的坐标。当MAR高于阈值时，表示嘴巴张开。
-
-## 参数调优
-
-可以在`FaceLivenessDetector`类中调整以下参数：
-
+### 2. 并发执行
 ```python
-# 眨眼检测参数
-self.EAR_THRESHOLD = 0.25  # 眼睛纵横比阈值
-self.EAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
+# 使用 asyncio.gather 并发执行
+tasks = [my_coroutine() for _ in range(5)]
+results = await asyncio.gather(*tasks)
 
-# 张嘴检测参数
-self.MAR_THRESHOLD = 0.5  # 嘴部纵横比阈值
-self.MAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
+# 使用 asyncio.create_task 创建任务
+task = asyncio.create_task(my_coroutine())
+result = await task
 ```
+
+### 3. 异常处理
+```python
+try:
+    result = await risky_coroutine()
+except ValueError as e:
+    print(f"捕获异常: {e}")
+
+# 使用 return_exceptions=True
+results = await asyncio.gather(*tasks, return_exceptions=True)
+```
+
+### 4. 超时控制
+```python
+try:
+    result = await asyncio.wait_for(slow_coroutine(), timeout=5.0)
+except asyncio.TimeoutError:
+    print("操作超时")
+```
+
+## 最佳实践
+
+### 1. 使用信号量限制并发
+```python
+semaphore = asyncio.Semaphore(10)
+async def limited_task():
+    async with semaphore:
+        # 执行任务
+        pass
+```
+
+### 2. 合理使用 asyncio.gather 和 create_task
+- 使用 `gather` 等待多个协程完成
+- 使用 `create_task` 在协程运行时创建新任务
+
+### 3. 错误处理和重试
+```python
+async def retry_task(max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return await unreliable_task()
+        except Exception as e:
+            if attempt < max_retries - 1:
+                await asyncio.sleep(0.1 * (attempt + 1))
+            else:
+                raise e
+```
+
+### 4. 资源管理
+```python
+async def resource_manager():
+    async with aiohttp.ClientSession() as session:
+        # 使用session
+        pass
+```
+
+## 常见问题
+
+### Q: 什么时候使用协程？
+A: 协程适用于IO密集型任务，如网络请求、文件操作、数据库查询等。对于CPU密集型任务，协程的优势不明显。
+
+### Q: 协程和线程有什么区别？
+A: 协程是单线程的，通过协作式多任务实现并发；线程是抢占式多任务。协程更轻量级，但需要显式让出控制权。
+
+### Q: 如何调试协程？
+A: 可以使用 `asyncio.run()` 运行协程，使用 `pdb` 或 `ipdb` 进行调试，注意在 `await` 语句处设置断点。
+
+### Q: 协程中的全局变量安全吗？
+A: 协程是单线程的，所以全局变量是安全的，但要注意异步操作可能导致的竞态条件。
 
 ## 性能优化
 
-1. **GPU加速**: 系统自动检测并使用GPU加速
-2. **多模型支持**: MediaPipe作为主要检测器，dlib作为备用
-3. **实时处理**: 优化的算法确保实时性能
-
-## 系统要求
-
-- Python 3.7+
-- OpenCV 4.x
-- CUDA支持的GPU (可选)
-- 摄像头设备
-
-## 注意事项
-
-1. 首次运行会自动下载dlib预训练模型
-2. 确保摄像头权限已开启
-3. 在光线充足的环境下效果更佳
-4. 建议人脸距离摄像头30-60cm
-
-## 故障排除
-
-### 常见问题
-
-1. **GPU不可用**: 系统会自动回退到CPU模式
-2. **摄像头无法打开**: 检查摄像头权限和设备连接
-3. **检测精度低**: 调整阈值参数或改善光线条件
-
-### 调试模式
-
-在代码中设置调试模式：
-
+### 1. 批量处理
 ```python
-detector = FaceLivenessDetector(use_gpu=True)
-# 启用详细日志输出
+async def batch_process(items, batch_size=100):
+    for i in range(0, len(items), batch_size):
+        batch = items[i:i + batch_size]
+        tasks = [process_item(item) for item in batch]
+        await asyncio.gather(*tasks)
 ```
+
+### 2. 连接池
+```python
+# 使用连接池复用连接
+async with aiohttp.ClientSession() as session:
+    tasks = [session.get(url) for url in urls]
+    responses = await asyncio.gather(*tasks)
+```
+
+### 3. 缓存机制
+```python
+cache = {}
+async def cached_operation(key):
+    if key not in cache:
+        cache[key] = await expensive_operation()
+    return cache[key]
+```
+
+## 扩展阅读
+
+- [Python asyncio 官方文档](https://docs.python.org/3/library/asyncio.html)
+- [aiohttp 文档](https://docs.aiohttp.org/)
+- [异步编程最佳实践](https://docs.python.org/3/library/asyncio-dev.html)
 
 ## 许可证
 
 MIT License
-
-## 贡献
-
-欢迎提交Issue和Pull Request来改进这个项目。

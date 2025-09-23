@@ -1,9 +1,6 @@
-opencv-python==4.8.1.78
-dlib==19.24.2
-numpy==1.24.3
-imutils==0.5.4
-scipy==1.11.3
-tensorflow-gpu==2.13.0
-mediapipe==0.10.7
-pillow==10.0.1
-matplotlib==3.7.2
+# Python协程示例依赖包
+aiohttp>=3.8.0
+aiofiles>=0.8.0
+asyncio-mqtt>=0.11.0
+aioredis>=2.0.0
+asyncpg>=0.27.0
