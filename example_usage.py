@@ -1,92 +1,207 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Chrome书签同步使用示例
+用户图片清理系统使用示例
+演示如何使用各个组件进行图片管理
 """
 
-from chrome_to_edge_sync import BookmarkSync
-import time
+import sys
+import os
+from datetime import datetime, timedelta
 
-def example_manual_sync():
-    """示例：手动同步一次"""
-    print("=== 手动同步示例 ===")
-    
-    # 创建同步器
-    sync = BookmarkSync()
-    
-    # 运行一次同步
-    success = sync.run_once()
-    
-    if success:
-        print("✓ 手动同步成功")
-    else:
-        print("✗ 手动同步失败")
+# 添加当前目录到Python路径
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-def example_custom_config():
-    """示例：使用自定义配置"""
-    print("\n=== 自定义配置示例 ===")
-    
-    # 创建自定义配置
-    custom_config = {
-        "sync_interval_minutes": 60,  # 每小时同步一次
-        "backup_enabled": True,
-        "backup_retention_days": 14,  # 保留14天备份
-        "exclude_folders": ["书签栏", "其他书签", "工作书签"],
-        "log_level": "DEBUG"
-    }
-    
-    # 保存自定义配置
-    import json
-    with open('/workspace/custom_config.json', 'w', encoding='utf-8') as f:
-        json.dump(custom_config, f, indent=4, ensure_ascii=False)
-    
-    # 使用自定义配置创建同步器
-    sync = BookmarkSync('/workspace/custom_config.json')
-    
-    print("✓ 自定义配置已创建")
-    print(f"同步间隔: {sync.config['sync_interval_minutes']}分钟")
-    print(f"备份保留: {sync.config['backup_retention_days']}天")
-    print(f"排除文件夹: {sync.config['exclude_folders']}")
+from user_image_models import UserImageDatabase, UserImage
 
-def example_scheduled_sync():
-    """示例：启动定期同步（运行10秒后停止）"""
-    print("\n=== 定期同步示例 ===")
-    print("启动定期同步，10秒后自动停止...")
+def example_database_operations():
+    """演示数据库操作"""
+    print("=" * 60)
+    print("数据库操作示例")
+    print("=" * 60)
     
-    sync = BookmarkSync()
+    # 创建数据库实例
+    db = UserImageDatabase()
     
-    # 修改同步间隔为10秒（仅用于演示）
-    sync.config['sync_interval_minutes'] = 0.1  # 6秒
+    # 模拟用户上传图片
+    user_id = "demo_user_001"
+    print(f"模拟用户 {user_id} 上传图片...")
     
-    # 在单独线程中启动调度器
-    import threading
-    scheduler_thread = threading.Thread(target=sync.start_scheduler)
-    scheduler_thread.daemon = True
-    scheduler_thread.start()
+    # 上传15张图片（超过限制）
+    for i in range(15):
+        image = UserImage(
+            id=None,
+            user_id=user_id,
+            image_name=f"vacation_photo_{i+1:02d}.jpg",
+            oss_key=f"users/{user_id}/vacation_photo_{i+1:02d}.jpg",
+            file_size=2048000 + i * 50000,  # 2MB + 变化
+            mime_type="image/jpeg",
+            upload_time=datetime.now() - timedelta(hours=i),
+            last_accessed=None
+        )
+        
+        success = db.add_user_image(image)
+        if success:
+            print(f"  ✅ 上传图片: {image.image_name} ({image.file_size/1024/1024:.1f}MB)")
+        else:
+            print(f"  ❌ 上传失败: {image.image_name}")
     
-    # 运行10秒
-    time.sleep(10)
+    # 查看用户当前图片
+    print(f"\n用户 {user_id} 当前图片:")
+    images = db.get_user_images(user_id)
+    for img in images:
+        print(f"  📷 {img.image_name} - {img.file_size/1024/1024:.1f}MB - {img.upload_time.strftime('%Y-%m-%d %H:%M')}")
     
-    print("✓ 定期同步示例完成")
+    # 查看统计信息
+    stats = db.get_user_image_stats(user_id)
+    print(f"\n统计信息:")
+    print(f"  总图片数: {stats['total_images']}")
+    print(f"  活跃图片数: {stats['active_images']}")
+    print(f"  总存储大小: {stats['total_size_mb']:.1f}MB")
+    print(f"  首次上传: {stats['first_upload']}")
+    print(f"  最后上传: {stats['last_upload']}")
+    
+    # 查看待删除的图片
+    images_to_delete = db.get_images_to_delete(0)  # 立即删除
+    print(f"\n待删除图片数量: {len(images_to_delete)}")
+    for img_id, oss_key in images_to_delete[:5]:  # 只显示前5个
+        print(f"  🗑️ {oss_key}")
+    
+    db.close()
+    print("\n✅ 数据库操作示例完成")
+
+def example_cleanup_simulation():
+    """演示清理过程模拟"""
+    print("=" * 60)
+    print("清理过程模拟")
+    print("=" * 60)
+    
+    # 创建数据库实例
+    db = UserImageDatabase()
+    
+    # 获取待删除的图片
+    images_to_delete = db.get_images_to_delete(0)
+    
+    if not images_to_delete:
+        print("没有需要删除的图片")
+        return
+    
+    print(f"找到 {len(images_to_delete)} 张需要删除的图片")
+    
+    # 模拟删除过程
+    deleted_count = 0
+    for i, (img_id, oss_key) in enumerate(images_to_delete[:10], 1):  # 只处理前10个
+        print(f"处理 {i}/{min(10, len(images_to_delete))}: {oss_key}")
+        
+        # 模拟OSS文件删除
+        print(f"  🗑️ 删除OSS文件: {oss_key}")
+        
+        # 删除数据库记录
+        if db.delete_image_record(img_id):
+            print(f"  ✅ 删除数据库记录: ID={img_id}")
+            deleted_count += 1
+        else:
+            print(f"  ❌ 删除数据库记录失败: ID={img_id}")
+    
+    print(f"\n清理完成: 成功删除 {deleted_count} 张图片")
+    
+    # 查看清理后的统计
+    stats = db.get_user_image_stats()
+    print(f"\n清理后统计:")
+    print(f"  总用户数: {stats['total_users']}")
+    print(f"  总图片数: {stats['total_images']}")
+    print(f"  活跃图片数: {stats['active_images']}")
+    print(f"  总存储大小: {stats['total_size_mb']:.1f}MB")
+    
+    db.close()
+    print("\n✅ 清理过程模拟完成")
+
+def example_multiple_users():
+    """演示多用户场景"""
+    print("=" * 60)
+    print("多用户场景示例")
+    print("=" * 60)
+    
+    # 创建数据库实例
+    db = UserImageDatabase()
+    
+    # 模拟多个用户上传图片
+    users = ["alice", "bob", "charlie"]
+    
+    for user_id in users:
+        print(f"\n用户 {user_id} 上传图片:")
+        
+        # 每个用户上传不同数量的图片
+        num_images = 8 if user_id == "alice" else 12 if user_id == "bob" else 15
+        
+        for i in range(num_images):
+            image = UserImage(
+                id=None,
+                user_id=user_id,
+                image_name=f"{user_id}_photo_{i+1:02d}.jpg",
+                oss_key=f"users/{user_id}/{user_id}_photo_{i+1:02d}.jpg",
+                file_size=1500000 + i * 10000,
+                mime_type="image/jpeg",
+                upload_time=datetime.now() - timedelta(hours=i),
+                last_accessed=None
+            )
+            
+            db.add_user_image(image)
+            print(f"  📷 {image.image_name}")
+        
+        # 查看用户图片数量
+        images = db.get_user_images(user_id)
+        print(f"  当前活跃图片数: {len(images)}")
+    
+    # 查看总体统计
+    print(f"\n总体统计:")
+    stats = db.get_user_image_stats()
+    print(f"  总用户数: {stats['total_users']}")
+    print(f"  总图片数: {stats['total_images']}")
+    print(f"  活跃图片数: {stats['active_images']}")
+    print(f"  平均图片大小: {stats['avg_size_mb']:.1f}MB")
+    
+    # 查看各用户统计
+    for user_id in users:
+        user_stats = db.get_user_image_stats(user_id)
+        print(f"\n用户 {user_id}:")
+        print(f"  活跃图片数: {user_stats['active_images']}")
+        print(f"  总存储大小: {user_stats['total_size_mb']:.1f}MB")
+    
+    db.close()
+    print("\n✅ 多用户场景示例完成")
 
 def main():
     """主函数"""
-    print("Chrome书签同步使用示例")
-    print("=" * 50)
+    print("用户图片清理系统使用示例")
+    print("=" * 60)
     
-    # 示例1：手动同步
-    example_manual_sync()
-    
-    # 示例2：自定义配置
-    example_custom_config()
-    
-    # 示例3：定期同步（演示）
-    # example_scheduled_sync()  # 取消注释以运行
-    
-    print("\n所有示例完成！")
-    print("\n实际使用方法：")
-    print("1. 手动同步: python3 chrome_to_edge_sync.py --once")
-    print("2. 定期同步: python3 chrome_to_edge_sync.py")
-    print("3. 简化版本: python3 bookmark_sync_manual.py")
+    try:
+        # 运行各个示例
+        example_database_operations()
+        print()
+        
+        example_cleanup_simulation()
+        print()
+        
+        example_multiple_users()
+        print()
+        
+        print("=" * 60)
+        print("🎉 所有示例运行完成！")
+        print("=" * 60)
+        
+        print("\n💡 提示:")
+        print("1. 每个用户最多保留10张图片（可配置）")
+        print("2. 超出限制的图片会被标记为不活跃")
+        print("3. 可以设置延迟时间后再实际删除")
+        print("4. 支持批量处理和重试机制")
+        print("5. 提供详细的统计信息和日志记录")
+        
+    except Exception as e:
+        print(f"❌ 示例运行失败: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()
