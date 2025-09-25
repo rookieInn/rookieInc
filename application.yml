@@ -1,0 +1,60 @@
+# Spring Boot应用配置文件
+# 配置数据库连接和其他设置
+
+spring:
+  application:
+    name: money-calculation-demo
+  
+  # 数据库配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/ecommerce_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: rootpassword
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: update  # 自动更新数据库表结构
+    show-sql: true      # 显示SQL语句
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+    open-in-view: false
+    
+  # Jackson配置（处理BigDecimal序列化）
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+
+# 服务器配置
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# 日志配置
+logging:
+  level:
+    com.example: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# 自定义配置
+app:
+  # 金额相关配置
+  money:
+    default-scale: 2                    # 默认小数位数
+    default-rounding-mode: HALF_UP      # 默认舍入模式
+    currency-code: CNY                  # 默认货币代码
+    
+  # 业务配置
+  business:
+    tax-rate: 0.13                      # 默认税率 13%
+    free-shipping-threshold: 100.00     # 免运费门槛
+    max-discount-rate: 0.5              # 最大折扣率 50%
