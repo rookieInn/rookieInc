@@ -1,0 +1,29 @@
+[Unit]
+Description=Error Log Monitor Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/workspace
+ExecStart=/usr/bin/python3 /workspace/error_log_monitor.py --config /workspace/error_monitor_config.json
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# 环境变量
+Environment=PYTHONPATH=/workspace
+Environment=PYTHONUNBUFFERED=1
+
+# 安全设置
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/workspace
+ReadOnlyPaths=/var/log
+
+[Install]
+WantedBy=multi-user.target

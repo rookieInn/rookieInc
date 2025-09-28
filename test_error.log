@@ -1,0 +1,5 @@
+2024-01-15 10:00:01 INFO Application started
+2024-01-15 10:00:02 ERROR Database connection failed
+2024-01-15 10:00:03 CRITICAL System overload detected
+2024-01-15 10:00:04 FATAL System crash imminent
+2024-01-15 10:00:05 ERROR Another error occurred
