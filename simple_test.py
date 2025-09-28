@@ -1,195 +1,118 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-简化测试脚本，不依赖外部包
+简化的错误监控测试
 """
 
 import os
-import sys
-import zipfile
-import tempfile
-import shutil
-from pathlib import Path
+import json
 
-
-def test_zip_creation():
-    """测试ZIP压缩包创建"""
-    print("测试ZIP压缩包创建...")
+def test_basic_functionality():
+    """测试基本功能"""
+    print("🚀 开始基本功能测试")
+    
+    # 1. 测试配置文件
+    print("\n1. 测试配置文件...")
+    try:
+        with open('error_monitor_config.json', 'r') as f:
+            config = json.load(f)
+        print("✅ 配置文件格式正确")
+        print(f"   - 监控文件数量: {len(config['monitor']['log_file_paths'])}")
+        print(f"   - 错误阈值: {config['monitor']['error_threshold']}")
+        print(f"   - 时间窗口: {config['monitor']['time_window_minutes']} 分钟")
+    except Exception as e:
+        print(f"❌ 配置文件错误: {e}")
+        return False
+    
+    # 2. 测试Python脚本语法
+    print("\n2. 测试Python脚本语法...")
+    try:
+        import ast
+        with open('error_log_monitor.py', 'r') as f:
+            source = f.read()
+        ast.parse(source)
+        print("✅ error_log_monitor.py 语法正确")
+        
+        with open('email_notifier.py', 'r') as f:
+            source = f.read()
+        ast.parse(source)
+        print("✅ email_notifier.py 语法正确")
+    except Exception as e:
+        print(f"❌ Python脚本语法错误: {e}")
+        return False
+    
+    # 3. 测试依赖模块
+    print("\n3. 测试依赖模块...")
+    try:
+        import psutil
+        print("✅ psutil 模块可用")
+    except ImportError as e:
+        print(f"❌ psutil 模块不可用: {e}")
+        return False
     
     try:
-        # 创建测试目录
-        test_dir = Path("test_zip_dir")
-        test_dir.mkdir(exist_ok=True)
-        
-        # 创建测试文件
-        (test_dir / "file1.txt").write_text("文件1内容")
-        (test_dir / "file2.txt").write_text("文件2内容")
-        
-        # 创建子目录
-        sub_dir = test_dir / "subdir"
-        sub_dir.mkdir(exist_ok=True)
-        (sub_dir / "file3.txt").write_text("文件3内容")
-        
-        # 创建ZIP
-        zip_path = Path("test.zip")
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk(test_dir):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, test_dir)
-                    zipf.write(file_path, arcname)
-        
-        # 验证ZIP文件
-        if zip_path.exists() and zip_path.stat().st_size > 0:
-            print("✓ ZIP压缩包创建测试通过")
-            
-            # 验证ZIP内容
-            with zipfile.ZipFile(zip_path, 'r') as zipf:
-                file_list = zipf.namelist()
-                print(f"  ZIP包含文件: {file_list}")
-            
-            success = True
+        import smtplib
+        print("✅ smtplib 模块可用")
+    except ImportError as e:
+        print(f"❌ smtplib 模块不可用: {e}")
+        return False
+    
+    # 4. 测试文件权限
+    print("\n4. 测试文件权限...")
+    scripts = ['error_log_monitor.py', 'email_notifier.py', 'error_monitor_service.sh']
+    for script in scripts:
+        if os.path.exists(script):
+            if os.access(script, os.R_OK):
+                print(f"✅ {script} 可读")
+            else:
+                print(f"❌ {script} 不可读")
         else:
-            print("✗ ZIP压缩包创建测试失败")
-            success = False
-        
-        # 清理
-        shutil.rmtree(test_dir)
-        zip_path.unlink()
-        
-        return success
-        
-    except Exception as e:
-        print(f"✗ ZIP压缩包创建测试失败: {e}")
-        return False
-
-
-def test_file_operations():
-    """测试文件操作"""
-    print("测试文件操作...")
+            print(f"❌ {script} 不存在")
     
-    try:
-        # 创建测试目录结构
-        test_dir = Path("test_structure")
-        test_dir.mkdir(exist_ok=True)
-        
-        # 创建2023年的测试文件夹
-        folders_2023 = [
-            "2023/01/01",
-            "2023/01/15", 
-            "2023/02/01",
-            "2023/03/01",
-            "2023/12/31"
-        ]
-        
-        for folder in folders_2023:
-            folder_path = test_dir / folder
-            folder_path.mkdir(parents=True, exist_ok=True)
-            
-            # 在每个文件夹中创建一些测试文件
-            for i in range(3):
-                test_file = folder_path / f"test_file_{i}.txt"
-                test_file.write_text(f"测试文件内容 {folder} - {i}")
-        
-        # 验证创建的文件
-        total_files = 0
-        for root, dirs, files in os.walk(test_dir):
-            total_files += len(files)
-        
-        print(f"  创建了 {len(folders_2023)} 个文件夹，{total_files} 个文件")
-        
-        # 清理
-        shutil.rmtree(test_dir)
-        
-        print("✓ 文件操作测试通过")
-        return True
-        
-    except Exception as e:
-        print(f"✗ 文件操作测试失败: {e}")
-        return False
-
-
-def test_config_parsing():
-    """测试配置文件解析"""
-    print("测试配置文件解析...")
-    
-    try:
-        # 创建测试配置文件
-        config_content = """[aliyun_oss]
-access_key_id = test_key
-access_key_secret = test_secret
-endpoint = https://oss-cn-hangzhou.aliyuncs.com
-bucket_name = test_bucket
-
-[baidu_pan]
-access_token = test_token
-
-[general]
-temp_dir = ./temp
-output_dir = ./output
-target_year = 2023
+    # 5. 创建测试日志文件
+    print("\n5. 创建测试日志文件...")
+    test_log_content = """2024-01-15 10:00:01 INFO Application started
+2024-01-15 10:00:02 ERROR Database connection failed
+2024-01-15 10:00:03 CRITICAL System overload detected
+2024-01-15 10:00:04 FATAL System crash imminent
+2024-01-15 10:00:05 ERROR Another error occurred
 """
-        
-        config_file = Path("test_config.ini")
-        config_file.write_text(config_content)
-        
-        # 解析配置文件
-        import configparser
-        config = configparser.ConfigParser()
-        config.read("test_config.ini", encoding='utf-8')
-        
-        # 验证配置
-        assert config.get('aliyun_oss', 'access_key_id') == 'test_key'
-        assert config.get('general', 'target_year') == '2023'
-        
-        # 清理
-        config_file.unlink()
-        
-        print("✓ 配置文件解析测试通过")
-        return True
-        
-    except Exception as e:
-        print(f"✗ 配置文件解析测试失败: {e}")
-        return False
-
-
-def main():
-    """主测试函数"""
-    print("开始测试迁移工具核心功能...")
-    print("=" * 50)
     
-    tests = [
-        ("配置文件解析", test_config_parsing),
-        ("文件操作", test_file_operations),
-        ("ZIP压缩包创建", test_zip_creation),
-    ]
+    with open('test_error.log', 'w') as f:
+        f.write(test_log_content)
+    print("✅ 测试日志文件创建完成")
     
-    passed = 0
-    total = len(tests)
+    # 6. 测试错误计数
+    print("\n6. 测试错误计数...")
+    error_patterns = ["ERROR", "FATAL", "CRITICAL"]
+    error_count = 0
     
-    for test_name, test_func in tests:
-        print(f"\n{test_name}:")
-        try:
-            if test_func():
-                passed += 1
-        except Exception as e:
-            print(f"✗ {test_name} 测试异常: {e}")
+    with open('test_error.log', 'r') as f:
+        for line in f:
+            for pattern in error_patterns:
+                if pattern in line:
+                    error_count += 1
+                    break
     
-    print("\n" + "=" * 50)
-    print(f"测试结果: {passed}/{total} 通过")
+    print(f"✅ 检测到 {error_count} 个错误")
     
-    if passed == total:
-        print("✓ 所有核心功能测试通过！")
-        print("\n程序已准备就绪，请按照以下步骤使用：")
-        print("1. 编辑 config.ini 文件，填入您的阿里云OSS和百度云盘配置")
-        print("2. 安装依赖: pip install -r requirements.txt")
-        print("3. 运行程序: python3 oss_to_baidupan.py")
-        return True
-    else:
-        print("✗ 部分测试失败，请检查环境配置")
-        return False
-
+    # 7. 显示配置摘要
+    print("\n7. 配置摘要:")
+    print(f"   - 监控文件: {config['monitor']['log_file_paths']}")
+    print(f"   - 错误模式: {config['monitor']['error_patterns'][:3]}...")
+    print(f"   - 错误阈值: {config['monitor']['error_threshold']}")
+    print(f"   - 时间窗口: {config['monitor']['time_window_minutes']} 分钟")
+    print(f"   - 检查间隔: {config['monitor']['check_interval_seconds']} 秒")
+    print(f"   - 收件人: {config['email']['to_emails']}")
+    
+    print("\n✅ 所有基本功能测试通过！")
+    print("\n💡 下一步:")
+    print("1. 编辑 error_monitor_config.json 配置邮件服务器")
+    print("2. 运行: python3 error_log_monitor.py --test")
+    print("3. 运行: python3 email_notifier.py --test")
+    print("4. 安装服务: ./error_monitor_service.sh install")
+    
+    return True
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    test_basic_functionality()

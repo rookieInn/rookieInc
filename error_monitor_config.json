@@ -1,0 +1,47 @@
+{
+    "monitor": {
+        "log_file_paths": [
+            "/var/log/syslog",
+            "/var/log/messages",
+            "/var/log/auth.log",
+            "/var/log/kern.log",
+            "./bookmark_sync.log",
+            "./sql_to_docs.log"
+        ],
+        "error_patterns": [
+            "ERROR",
+            "FATAL",
+            "CRITICAL",
+            "Exception",
+            "Traceback",
+            "Failed",
+            "Error:",
+            "error:",
+            "failed",
+            "timeout",
+            "connection refused",
+            "permission denied"
+        ],
+        "time_window_minutes": 5,
+        "error_threshold": 10,
+        "check_interval_seconds": 30
+    },
+    "email": {
+        "smtp_server": "smtp.gmail.com",
+        "smtp_port": 587,
+        "username": "your_email@gmail.com",
+        "password": "your_app_password",
+        "from_email": "your_email@gmail.com",
+        "to_emails": [
+            "admin@yourcompany.com",
+            "devops@yourcompany.com"
+        ],
+        "subject_prefix": "[系统错误监控]"
+    },
+    "notification": {
+        "cooldown_minutes": 30,
+        "max_notifications_per_hour": 5,
+        "include_error_details": true,
+        "include_system_info": true
+    }
+}
