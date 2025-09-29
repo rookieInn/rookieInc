@@ -14,6 +14,7 @@ from backend.ai_models import ai_manager
 from backend.route_planner import route_planner, RouteConstraint
 from backend.cache_manager import cache_manager
 from backend.auth import get_current_user, create_access_token, verify_password, get_password_hash
+from fastapi_idempotency import idempotent_fastapi
 from backend.schemas import (
     UserCreate, UserResponse, TravelPlanCreate, TravelPlanResponse,
     ConversationCreate, ConversationResponse, RoutePlanRequest, RoutePlanResponse
@@ -89,6 +90,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
 
 # 路线规划相关路由
 @router.post("/route/plan", response_model=RoutePlanResponse)
+@idempotent_fastapi(ttl=600, enable_rate_limit=True, enable_duplicate_check=True)
 async def create_route_plan(
     plan_request: RoutePlanRequest,
     current_user: User = Depends(get_current_user),
@@ -178,6 +180,7 @@ async def create_route_plan(
         )
 
 @router.post("/route/optimize")
+@idempotent_fastapi(ttl=300, enable_rate_limit=True, enable_duplicate_check=True)
 async def optimize_route(
     plan_id: int,
     feedback: str,
@@ -223,6 +226,7 @@ async def optimize_route(
 
 # 对话相关路由
 @router.post("/chat", response_model=ConversationResponse)
+@idempotent_fastapi(ttl=300, enable_rate_limit=True, enable_duplicate_check=True)
 async def chat_with_ai(
     conversation: ConversationCreate,
     current_user: User = Depends(get_current_user),

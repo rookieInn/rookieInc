@@ -16,6 +16,7 @@ from database.database import init_db
 from backend.cache_manager import cache_manager
 from backend.api_routes import router
 from backend.auth import security_manager
+from fastapi_idempotency import IdempotencyMiddleware
 
 # 配置日志
 logging.basicConfig(
@@ -82,6 +83,15 @@ app.add_middleware(
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1"]
+)
+
+# 添加幂等性中间件
+app.add_middleware(
+    IdempotencyMiddleware,
+    enable_rate_limit=True,
+    enable_duplicate_check=True,
+    protected_paths=["/api/v1/route/plan", "/api/v1/chat", "/api/v1/route/optimize"],
+    excluded_paths=["/health", "/docs", "/redoc"]
 )
 
 # 添加API路由
