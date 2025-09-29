@@ -21,6 +21,7 @@ from tracking_models import (
     generate_session_id, 
     generate_event_id
 )
+from idempotency_manager import idempotency_manager, idempotent
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -65,6 +66,7 @@ def get_client_info() -> Dict[str, Any]:
     }
 
 @app.route('/api/track/event', methods=['POST'])
+@idempotent(ttl=300, enable_rate_limit=True, enable_duplicate_check=True)
 def track_event():
     """接收用户事件数据"""
     try:
@@ -128,6 +130,7 @@ def track_event():
         }), 500
 
 @app.route('/api/track/pageview', methods=['POST'])
+@idempotent(ttl=300, enable_rate_limit=True, enable_duplicate_check=True)
 def track_pageview():
     """接收页面访问数据"""
     try:
@@ -185,6 +188,7 @@ def track_pageview():
         }), 500
 
 @app.route('/api/track/batch', methods=['POST'])
+@idempotent(ttl=600, enable_rate_limit=True, enable_duplicate_check=True)
 def track_batch():
     """批量接收埋点数据"""
     try:
