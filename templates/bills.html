@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}账单管理 - 分账程序{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-receipt"></i> 账单管理</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createBillModal">
+        <i class="bi bi-plus-circle"></i> 创建账单
+    </button>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                {% if bills %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>账单标题</th>
+                                    <th>总金额</th>
+                                    <th>分账方式</th>
+                                    <th>创建时间</th>
+                                    <th>创建者</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bill in bills %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ bill.title }}</strong>
+                                        {% if bill.description %}
+                                            <br><small class="text-muted">{{ bill.description }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="amount">¥{{ "%.2f"|format(bill.total_amount) }}</td>
+                                    <td>
+                                        {% if bill.split_type == 'equal' %}
+                                            <span class="badge bg-primary">平均分账</span>
+                                        {% elif bill.split_type == 'proportional' %}
+                                            <span class="badge bg-info">按比例分账</span>
+                                        {% elif bill.split_type == 'custom' %}
+                                            <span class="badge bg-warning">自定义分账</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ bill.created_at[:19] }}</td>
+                                    <td>{{ bill.created_by_name or '-' }}</td>
+                                    <td>
+                                        <a href="{{ url_for('bill_detail', bill_id=bill.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i> 查看详情
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-receipt text-muted" style="font-size: 4rem;"></i>
+                        <h5 class="text-muted mt-3">暂无账单</h5>
+                        <p class="text-muted">点击上方按钮创建第一个账单</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建账单模态框 -->
+<div class="modal fade" id="createBillModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">创建账单</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createBillForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="billTitle" class="form-label">账单标题 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="billTitle" name="title" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="billAmount" class="form-label">总金额 <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">¥</span>
+                                    <input type="number" class="form-control" id="billAmount" name="total_amount" step="0.01" min="0" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="billDescription" class="form-label">描述</label>
+                        <textarea class="form-control" id="billDescription" name="description" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">分账方式 <span class="text-danger">*</span></label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="split_type" id="splitEqual" value="equal" checked>
+                            <label class="form-check-label" for="splitEqual">
+                                平均分账 - 所有参与者平均分摊费用
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="split_type" id="splitProportional" value="proportional">
+                            <label class="form-check-label" for="splitProportional">
+                                按比例分账 - 按指定比例分摊费用
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="split_type" id="splitCustom" value="custom">
+                            <label class="form-check-label" for="splitCustom">
+                                自定义分账 - 手动指定每人应付金额
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">参与用户 <span class="text-danger">*</span></label>
+                        <div id="userList" class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                            <div class="text-muted text-center">正在加载用户列表...</div>
+                        </div>
+                    </div>
+                    
+                    <div id="customAmounts" class="mb-3" style="display: none;">
+                        <label class="form-label">自定义金额</label>
+                        <div id="customAmountList"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">创建账单</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let users = [];
+
+// 页面加载时获取用户列表
+document.addEventListener('DOMContentLoaded', function() {
+    loadUsers();
+});
+
+// 加载用户列表
+async function loadUsers() {
+    try {
+        const response = await axios.get('/api/users');
+        users = response.data;
+        renderUserList();
+    } catch (error) {
+        console.error('加载用户失败:', error);
+        document.getElementById('userList').innerHTML = '<div class="text-danger text-center">加载用户失败</div>';
+    }
+}
+
+// 渲染用户列表
+function renderUserList() {
+    const userList = document.getElementById('userList');
+    
+    if (users.length === 0) {
+        userList.innerHTML = '<div class="text-muted text-center">暂无用户，请先添加用户</div>';
+        return;
+    }
+    
+    userList.innerHTML = users.map(user => `
+        <div class="form-check">
+            <input class="form-check-input user-checkbox" type="checkbox" value="${user.id}" id="user_${user.id}">
+            <label class="form-check-label" for="user_${user.id}">
+                ${user.name}
+            </label>
+        </div>
+    `).join('');
+}
+
+// 监听分账方式变化
+document.querySelectorAll('input[name="split_type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const customAmounts = document.getElementById('customAmounts');
+        const customAmountList = document.getElementById('customAmountList');
+        
+        if (this.value === 'custom') {
+            customAmounts.style.display = 'block';
+            renderCustomAmounts();
+        } else {
+            customAmounts.style.display = 'none';
+        }
+    });
+});
+
+// 渲染自定义金额输入
+function renderCustomAmounts() {
+    const customAmountList = document.getElementById('customAmountList');
+    const selectedUsers = getSelectedUsers();
+    
+    customAmountList.innerHTML = selectedUsers.map(user => `
+        <div class="row mb-2">
+            <div class="col-6">
+                <label class="form-label">${user.name}</label>
+            </div>
+            <div class="col-6">
+                <div class="input-group">
+                    <span class="input-group-text">¥</span>
+                    <input type="number" class="form-control custom-amount" data-user-id="${user.id}" step="0.01" min="0">
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 获取选中的用户
+function getSelectedUsers() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    return Array.from(checkboxes).map(checkbox => {
+        const userId = parseInt(checkbox.value);
+        return users.find(user => user.id === userId);
+    }).filter(Boolean);
+}
+
+// 监听用户选择变化
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('user-checkbox')) {
+        const splitType = document.querySelector('input[name="split_type"]:checked').value;
+        if (splitType === 'custom') {
+            renderCustomAmounts();
+        }
+    }
+});
+
+// 创建账单
+document.getElementById('createBillForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const selectedUsers = getSelectedUsers();
+    
+    if (selectedUsers.length === 0) {
+        showAlert('请选择至少一个用户', 'warning');
+        return;
+    }
+    
+    const data = {
+        title: formData.get('title'),
+        total_amount: parseFloat(formData.get('total_amount')),
+        description: formData.get('description'),
+        split_type: formData.get('split_type'),
+        user_ids: selectedUsers.map(user => user.id)
+    };
+    
+    // 如果是自定义分账，添加自定义金额
+    if (data.split_type === 'custom') {
+        const customAmounts = {};
+        const customInputs = document.querySelectorAll('.custom-amount');
+        let totalCustomAmount = 0;
+        
+        customInputs.forEach(input => {
+            const userId = parseInt(input.dataset.userId);
+            const amount = parseFloat(input.value) || 0;
+            customAmounts[userId] = amount;
+            totalCustomAmount += amount;
+        });
+        
+        // 验证自定义金额总和
+        if (Math.abs(totalCustomAmount - data.total_amount) > 0.01) {
+            showAlert(`自定义金额总和 (¥${totalCustomAmount.toFixed(2)}) 与总金额 (¥${data.total_amount.toFixed(2)}) 不匹配`, 'warning');
+            return;
+        }
+        
+        data.custom_amounts = customAmounts;
+    }
+    
+    try {
+        const response = await axios.post('/api/bills', data);
+        
+        if (response.data.success) {
+            showAlert('账单创建成功', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('createBillModal')).hide();
+            this.reset();
+            location.reload();
+        } else {
+            showAlert(response.data.message, 'danger');
+        }
+    } catch (error) {
+        showAlert('创建失败，请重试', 'danger');
+    }
+});
+
+// 显示提示信息
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.querySelector('main .container').insertBefore(alertDiv, document.querySelector('main .container').firstChild);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}
