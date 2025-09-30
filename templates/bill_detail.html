@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}{{ bill.title }} - 账单详情{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-receipt"></i> {{ bill.title }}</h2>
+    <a href="{{ url_for('bills_page') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> 返回列表
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">账单信息</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>总金额：</strong><span class="amount">¥{{ "%.2f"|format(bill.total_amount) }}</span></p>
+                        <p><strong>分账方式：</strong>
+                            {% if bill.split_type == 'equal' %}
+                                <span class="badge bg-primary">平均分账</span>
+                            {% elif bill.split_type == 'proportional' %}
+                                <span class="badge bg-info">按比例分账</span>
+                            {% elif bill.split_type == 'custom' %}
+                                <span class="badge bg-warning">自定义分账</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>创建时间：</strong>{{ bill.created_at[:19] }}</p>
+                        <p><strong>创建者：</strong>{{ bill.created_by_name or '未知' }}</p>
+                    </div>
+                </div>
+                {% if bill.description %}
+                    <hr>
+                    <p><strong>描述：</strong>{{ bill.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">分账详情</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>用户</th>
+                                <th>应付金额</th>
+                                <th>支付状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for split in bill.splits %}
+                            <tr>
+                                <td>
+                                    <i class="bi bi-person-circle"></i>
+                                    {{ split.user_name }}
+                                </td>
+                                <td class="amount">¥{{ "%.2f"|format(split.amount) }}</td>
+                                <td>
+                                    {% if split.is_paid %}
+                                        <span class="badge bg-success status-badge">
+                                            <i class="bi bi-check-circle"></i> 已支付
+                                        </span>
+                                        {% if split.paid_at %}
+                                            <br><small class="text-muted">{{ split.paid_at[:19] }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-danger status-badge">
+                                            <i class="bi bi-x-circle"></i> 未支付
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not split.is_paid %}
+                                        <button class="btn btn-sm btn-success" onclick="markPaid({{ bill.id }}, {{ split.user_id }}, '{{ split.user_name }}')">
+                                            <i class="bi bi-check"></i> 标记已支付
+                                        </button>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-outline-secondary" disabled>
+                                            <i class="bi bi-check"></i> 已支付
+                                        </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">支付统计</h5>
+            </div>
+            <div class="card-body">
+                {% set paid_count = bill.splits | selectattr('is_paid') | list | length %}
+                {% set total_count = bill.splits | length %}
+                {% set paid_amount = bill.splits | selectattr('is_paid') | map(attribute='amount') | sum %}
+                {% set unpaid_amount = bill.total_amount - paid_amount %}
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>已支付：</span>
+                        <span class="amount">¥{{ "%.2f"|format(paid_amount) }}</span>
+                    </div>
+                    <div class="progress mt-1" style="height: 8px;">
+                        <div class="progress-bar bg-success" style="width: {{ (paid_amount / bill.total_amount * 100) | round(1) }}%"></div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>未支付：</span>
+                        <span class="amount text-danger">¥{{ "%.2f"|format(unpaid_amount) }}</span>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <h6>支付进度</h6>
+                    <div class="display-6 text-primary">{{ paid_count }}/{{ total_count }}</div>
+                    <small class="text-muted">人已支付</small>
+                </div>
+                
+                {% if paid_count == total_count %}
+                    <div class="alert alert-success mt-3 text-center">
+                        <i class="bi bi-check-circle"></i><br>
+                        <strong>账单已全部支付完成！</strong>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">快捷操作</h5>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-outline-primary w-100 mb-2" onclick="exportBill()">
+                    <i class="bi bi-download"></i> 导出账单
+                </button>
+                <button class="btn btn-outline-info w-100 mb-2" onclick="shareBill()">
+                    <i class="bi bi-share"></i> 分享账单
+                </button>
+                <button class="btn btn-outline-warning w-100" onclick="printBill()">
+                    <i class="bi bi-printer"></i> 打印账单
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 标记为已支付
+async function markPaid(billId, userId, userName) {
+    if (!confirm(`确认标记 ${userName} 为已支付吗？`)) {
+        return;
+    }
+    
+    try {
+        const response = await axios.post(`/api/bills/${billId}/pay`, {
+            user_id: userId
+        });
+        
+        if (response.data.success) {
+            showAlert('标记成功', 'success');
+            location.reload();
+        } else {
+            showAlert(response.data.message, 'danger');
+        }
+    } catch (error) {
+        showAlert('标记失败，请重试', 'danger');
+    }
+}
+
+// 导出账单
+function exportBill() {
+    const billData = {
+        title: '{{ bill.title }}',
+        total_amount: {{ bill.total_amount }},
+        description: '{{ bill.description }}',
+        created_at: '{{ bill.created_at }}',
+        splits: {{ bill.splits | tojson }}
+    };
+    
+    const dataStr = JSON.stringify(billData, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `账单_${billData.title}_${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+}
+
+// 分享账单
+function shareBill() {
+    const url = window.location.href;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: '{{ bill.title }} - 分账账单',
+            text: '查看我们的分账账单详情',
+            url: url
+        });
+    } else {
+        // 复制到剪贴板
+        navigator.clipboard.writeText(url).then(() => {
+            showAlert('账单链接已复制到剪贴板', 'success');
+        }).catch(() => {
+            showAlert('复制失败，请手动复制链接', 'warning');
+        });
+    }
+}
+
+// 打印账单
+function printBill() {
+    window.print();
+}
+
+// 显示提示信息
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.querySelector('main .container').insertBefore(alertDiv, document.querySelector('main .container').firstChild);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+
+<style>
+@media print {
+    .btn, .card-header, .navbar, footer {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+    
+    body {
+        font-size: 12pt;
+    }
+}
+</style>
+{% endblock %}

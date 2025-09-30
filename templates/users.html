@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理 - 分账程序{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-people"></i> 用户管理</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+        <i class="bi bi-person-plus"></i> 添加用户
+    </button>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                {% if users %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>姓名</th>
+                                    <th>邮箱</th>
+                                    <th>电话</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>
+                                        <i class="bi bi-person-circle"></i>
+                                        {{ user.name }}
+                                    </td>
+                                    <td>{{ user.email or '-' }}</td>
+                                    <td>{{ user.phone or '-' }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="editUser({{ user.id }}, '{{ user.name }}', '{{ user.email }}', '{{ user.phone }}')">
+                                            <i class="bi bi-pencil"></i> 编辑
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-people text-muted" style="font-size: 4rem;"></i>
+                        <h5 class="text-muted mt-3">暂无用户</h5>
+                        <p class="text-muted">点击上方按钮添加第一个用户</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加用户模态框 -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加用户</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addUserForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="userName" class="form-label">姓名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="userName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="userEmail" class="form-label">邮箱</label>
+                        <input type="email" class="form-control" id="userEmail" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label for="userPhone" class="form-label">电话</label>
+                        <input type="tel" class="form-control" id="userPhone" name="phone">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑用户模态框 -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑用户</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editUserForm">
+                <input type="hidden" id="editUserId" name="id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editUserName" class="form-label">姓名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editUserName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editUserEmail" class="form-label">邮箱</label>
+                        <input type="email" class="form-control" id="editUserEmail" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editUserPhone" class="form-label">电话</label>
+                        <input type="tel" class="form-control" id="editUserPhone" name="phone">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 添加用户
+document.getElementById('addUserForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await axios.post('/api/users', data);
+        
+        if (response.data.success) {
+            showAlert('用户添加成功', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+            this.reset();
+            location.reload();
+        } else {
+            showAlert(response.data.message, 'danger');
+        }
+    } catch (error) {
+        showAlert('添加失败，请重试', 'danger');
+    }
+});
+
+// 编辑用户
+function editUser(id, name, email, phone) {
+    document.getElementById('editUserId').value = id;
+    document.getElementById('editUserName').value = name;
+    document.getElementById('editUserEmail').value = email;
+    document.getElementById('editUserPhone').value = phone;
+    
+    new bootstrap.Modal(document.getElementById('editUserModal')).show();
+}
+
+// 显示提示信息
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.querySelector('main .container').insertBefore(alertDiv, document.querySelector('main .container').firstChild);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}
