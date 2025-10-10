@@ -1,140 +1,140 @@
-# 人脸识别和活体检测系统
+# Spring Boot API 处理时间计算
 
-这是一个基于Python和GPU的人脸识别和活体检测系统，支持张嘴检测和眨眼检测。
+这是一个Spring Boot应用程序，演示如何计算后端接口的处理时间。
 
 ## 功能特性
 
-- ✅ **人脸检测**: 使用MediaPipe和dlib双重检测
-- ✅ **眨眼检测**: 基于眼睛纵横比(EAR)的实时眨眼检测
-- ✅ **张嘴检测**: 基于嘴部纵横比(MAR)的实时张嘴检测
-- ✅ **GPU加速**: 支持TensorFlow GPU加速
-- ✅ **实时处理**: 支持摄像头实时检测
-- ✅ **多模型支持**: MediaPipe + dlib双重保障
+1. **拦截器方式** - 使用HandlerInterceptor计算API请求处理时间
+2. **AOP方式** - 使用@Timing注解和AOP切面计算方法执行时间
+3. **多种测试接口** - 提供各种模拟业务场景的测试接口
+4. **详细日志记录** - 记录处理时间到日志和响应头
 
-## 技术栈
+## 项目结构
 
-- **OpenCV**: 图像处理和摄像头操作
-- **MediaPipe**: Google的人脸检测和关键点提取
-- **dlib**: 传统计算机视觉库，作为备用检测器
-- **TensorFlow**: GPU加速支持
-- **NumPy**: 数值计算
-- **SciPy**: 距离计算
+```
+src/main/java/com/example/springbootapitiming/
+├── SpringBootApiTimingApplication.java    # 主应用程序类
+├── annotation/
+│   └── Timing.java                       # 处理时间注解
+├── aspect/
+│   └── TimingAspect.java                 # AOP切面
+├── config/
+│   └── WebConfig.java                    # Web配置
+├── controller/
+│   ├── ApiController.java                # API控制器
+│   └── ServiceController.java            # 服务控制器
+├── interceptor/
+│   └── ApiTimingInterceptor.java         # 处理时间拦截器
+└── service/
+    └── BusinessService.java              # 业务服务类
+```
 
-## 安装依赖
+## 快速开始
+
+### 1. 编译和运行
 
 ```bash
-pip install -r requirements.txt
+# 编译项目
+mvn clean compile
+
+# 运行应用程序
+mvn spring-boot:run
 ```
 
-## 使用方法
+### 2. 测试接口
 
-### 1. 实时摄像头检测
+应用程序启动后，可以通过以下接口测试处理时间计算：
 
-```bash
-python face_liveness_detection.py
-```
+#### 基础API接口（使用拦截器）
 
-### 2. 运行测试
+- `GET /api/quick` - 快速响应接口
+- `GET /api/process?delay=1000` - 模拟处理时间接口
+- `GET /api/database?records=10` - 数据库查询模拟接口
+- `POST /api/file?filename=test.txt&size=1024` - 文件处理模拟接口
+- `GET /api/complex?steps=5` - 复杂业务逻辑模拟接口
+- `GET /api/health` - 健康检查接口（不计算处理时间）
 
-```bash
-python test_liveness_detection.py
-```
+#### 服务接口（使用AOP注解）
 
-### 3. 在代码中使用
+- `GET /api/service/quick` - 快速业务接口
+- `GET /api/service/slow` - 慢速业务接口
+- `GET /api/service/database?records=20` - 数据库操作接口
+- `POST /api/service/file?filename=test.txt&fileSize=2048` - 文件处理接口
+- `GET /api/service/calculation?iterations=100000` - 复杂计算接口
 
-```python
-from face_liveness_detection import FaceLivenessDetector
+### 3. 查看处理时间
 
-# 创建检测器
-detector = FaceLivenessDetector(use_gpu=True)
-
-# 检测单张图像
-import cv2
-image = cv2.imread("your_image.jpg")
-results = detector.detect_liveness(image)
-
-print(f"人脸检测: {results['face_detected']}")
-print(f"眨眼检测: {results['blink_detected']}")
-print(f"张嘴检测: {results['mouth_open_detected']}")
-```
-
-## 检测原理
-
-### 眨眼检测 (EAR - Eye Aspect Ratio)
-
-眨眼检测基于眼睛纵横比(EAR)算法：
+#### 方式1：查看日志
+应用程序会在控制台输出详细的处理时间日志：
 
 ```
-EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
+2024-01-01 12:00:00.000 [http-nio-8080-exec-1] INFO  c.e.s.i.ApiTimingInterceptor - API请求开始: GET /api/quick
+2024-01-01 12:00:00.100 [http-nio-8080-exec-1] INFO  c.e.s.i.ApiTimingInterceptor - API请求完成: GET /api/quick - 处理时间: 100ms, 状态码: 200
 ```
 
-其中p1-p6是眼睛关键点的坐标。当EAR低于阈值时，表示眼睛闭合。
-
-### 张嘴检测 (MAR - Mouth Aspect Ratio)
-
-张嘴检测基于嘴部纵横比(MAR)算法：
+#### 方式2：查看响应头
+每个API响应都会包含处理时间信息：
 
 ```
-MAR = (|p2-p10| + |p4-p8|) / (2 * |p1-p7|)
+X-Processing-Time: 100
+X-Processing-Time-Unit: ms
 ```
 
-其中p1-p10是嘴部关键点的坐标。当MAR高于阈值时，表示嘴巴张开。
+#### 方式3：查看AOP日志
+使用@Timing注解的方法会输出执行时间：
 
-## 参数调优
-
-可以在`FaceLivenessDetector`类中调整以下参数：
-
-```python
-# 眨眼检测参数
-self.EAR_THRESHOLD = 0.25  # 眼睛纵横比阈值
-self.EAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
-
-# 张嘴检测参数
-self.MAR_THRESHOLD = 0.5  # 嘴部纵横比阈值
-self.MAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
+```
+2024-01-01 12:00:00.000 [http-nio-8080-exec-1] INFO  c.e.s.a.TimingAspect - 方法执行完成: 快速业务处理 - 执行时间: 50ms
 ```
 
-## 性能优化
+## 配置说明
 
-1. **GPU加速**: 系统自动检测并使用GPU加速
-2. **多模型支持**: MediaPipe作为主要检测器，dlib作为备用
-3. **实时处理**: 优化的算法确保实时性能
+### 拦截器配置
+在`WebConfig.java`中配置拦截器：
 
-## 系统要求
+```java
+@Override
+public void addInterceptors(InterceptorRegistry registry) {
+    registry.addInterceptor(apiTimingInterceptor)
+            .addPathPatterns("/api/**")  // 只拦截 /api/** 路径的请求
+            .excludePathPatterns("/api/health"); // 排除健康检查接口
+}
+```
 
-- Python 3.7+
-- OpenCV 4.x
-- CUDA支持的GPU (可选)
-- 摄像头设备
+### 日志配置
+在`application.yml`中配置日志级别：
+
+```yaml
+logging:
+  level:
+    com.example.springbootapitiming: INFO
+    org.springframework.web: DEBUG
+```
+
+## 使用场景
+
+1. **性能监控** - 监控API接口的响应时间
+2. **性能优化** - 识别慢接口并进行优化
+3. **系统监控** - 集成到监控系统中
+4. **调试分析** - 分析业务方法的执行时间
+
+## 扩展功能
+
+### 1. 集成监控系统
+可以将处理时间数据发送到监控系统（如Prometheus、InfluxDB等）。
+
+### 2. 数据库存储
+可以将处理时间数据存储到数据库中，用于历史分析和报表。
+
+### 3. 告警机制
+可以设置处理时间阈值，超过阈值时发送告警。
+
+### 4. 统计报表
+可以生成处理时间的统计报表和趋势分析。
 
 ## 注意事项
 
-1. 首次运行会自动下载dlib预训练模型
-2. 确保摄像头权限已开启
-3. 在光线充足的环境下效果更佳
-4. 建议人脸距离摄像头30-60cm
-
-## 故障排除
-
-### 常见问题
-
-1. **GPU不可用**: 系统会自动回退到CPU模式
-2. **摄像头无法打开**: 检查摄像头权限和设备连接
-3. **检测精度低**: 调整阈值参数或改善光线条件
-
-### 调试模式
-
-在代码中设置调试模式：
-
-```python
-detector = FaceLivenessDetector(use_gpu=True)
-# 启用详细日志输出
-```
-
-## 许可证
-
-MIT License
-
-## 贡献
-
-欢迎提交Issue和Pull Request来改进这个项目。
+1. 拦截器会为每个请求增加少量性能开销
+2. AOP切面只对使用@Timing注解的方法生效
+3. 生产环境中建议调整日志级别以减少日志输出
+4. 可以根据需要调整拦截器的路径匹配规则
