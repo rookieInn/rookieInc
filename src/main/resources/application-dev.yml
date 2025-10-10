@@ -1,0 +1,29 @@
+# 开发环境配置
+spring:
+  # 开发环境CORS配置
+  cors:
+    allowed-origins: "*"
+    allowed-methods: "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+    allowed-headers: "*"
+    allow-credentials: true
+    max-age: 3600
+
+# 开发环境日志配置
+logging:
+  level:
+    root: INFO
+    com.example.corsdemo: DEBUG
+    org.springframework.web.cors: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web.servlet.DispatcherServlet: DEBUG
+
+# 开发环境服务器配置
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  tomcat:
+    uri-encoding: UTF-8
+    max-connections: 1000
+    max-threads: 50
+    min-spare-threads: 5

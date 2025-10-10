@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Boot CORS 测试页面</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .test-section h3 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            border-left-color: #27ae60;
+            background-color: #d5f4e6;
+        }
+        .error {
+            border-left-color: #e74c3c;
+            background-color: #fadbd8;
+        }
+        .info {
+            background-color: #e8f4fd;
+            border: 1px solid #bee5eb;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .endpoint-list {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .endpoint-list ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .endpoint-list li {
+            margin: 5px 0;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Spring Boot CORS 测试页面</h1>
+        
+        <div class="info">
+            <h3>📋 测试说明</h3>
+            <p>此页面用于测试Spring Boot应用的跨域请求处理。点击下方按钮测试不同的HTTP方法和CORS配置。</p>
+            <p><strong>注意：</strong> 请确保Spring Boot应用已启动在 <code>http://localhost:8080</code></p>
+        </div>
+
+        <div class="endpoint-list">
+            <h3>🔗 可用的API端点</h3>
+            <ul>
+                <li>GET /api/test - 基础GET请求测试</li>
+                <li>POST /api/test - 基础POST请求测试</li>
+                <li>PUT /api/test/{id} - 基础PUT请求测试</li>
+                <li>DELETE /api/test/{id} - 基础DELETE请求测试</li>
+                <li>POST /api/test/headers - 带自定义请求头的测试</li>
+                <li>GET /api/data - 返回JSON数据</li>
+                <li>GET /cors/method-level - 方法级别CORS测试</li>
+                <li>POST /cors/specific-path - 特定路径CORS测试</li>
+                <li>GET /cors/manual-options - 手动OPTIONS处理测试</li>
+                <li>POST /cors/complex-request - 复杂请求测试</li>
+            </ul>
+        </div>
+
+        <!-- 基础API测试 -->
+        <div class="test-section">
+            <h3>🚀 基础API测试</h3>
+            <button onclick="testGet()">测试 GET 请求</button>
+            <button onclick="testPost()">测试 POST 请求</button>
+            <button onclick="testPut()">测试 PUT 请求</button>
+            <button onclick="testDelete()">测试 DELETE 请求</button>
+            <button onclick="testWithHeaders()">测试带请求头</button>
+            <button onclick="getData()">获取JSON数据</button>
+            <div id="basicResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- CORS配置测试 -->
+        <div class="test-section">
+            <h3>⚙️ CORS配置测试</h3>
+            <button onclick="testMethodLevelCors()">方法级别CORS</button>
+            <button onclick="testSpecificPathCors()">特定路径CORS</button>
+            <button onclick="testManualOptions()">手动OPTIONS处理</button>
+            <button onclick="testComplexRequest()">复杂请求测试</button>
+            <div id="corsResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- 批量测试 -->
+        <div class="test-section">
+            <h3>🔄 批量测试</h3>
+            <button onclick="runAllTests()">运行所有测试</button>
+            <button onclick="clearResults()">清空结果</button>
+            <div id="batchResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        
+        // 显示结果的通用函数
+        function showResult(containerId, message, isSuccess = true) {
+            const container = document.getElementById(containerId);
+            container.style.display = 'block';
+            container.textContent = message;
+            container.className = `result ${isSuccess ? 'success' : 'error'}`;
+        }
+
+        // 追加结果
+        function appendResult(containerId, message, isSuccess = true) {
+            const container = document.getElementById(containerId);
+            container.style.display = 'block';
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = isSuccess ? '✅' : '❌';
+            container.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            container.className = `result ${isSuccess ? 'success' : 'error'}`;
+        }
+
+        // 基础API测试函数
+        async function testGet() {
+            try {
+                const response = await fetch(`${API_BASE}/api/test`);
+                const data = await response.json();
+                showResult('basicResult', `GET请求成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('basicResult', `GET请求失败: ${error.message}`, false);
+            }
+        }
+
+        async function testPost() {
+            try {
+                const response = await fetch(`${API_BASE}/api/test`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: 'Hello from frontend',
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                const data = await response.json();
+                showResult('basicResult', `POST请求成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('basicResult', `POST请求失败: ${error.message}`, false);
+            }
+        }
+
+        async function testPut() {
+            try {
+                const response = await fetch(`${API_BASE}/api/test/123`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: 'Updated from frontend',
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                const data = await response.json();
+                showResult('basicResult', `PUT请求成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('basicResult', `PUT请求失败: ${error.message}`, false);
+            }
+        }
+
+        async function testDelete() {
+            try {
+                const response = await fetch(`${API_BASE}/api/test/123`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                showResult('basicResult', `DELETE请求成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('basicResult', `DELETE请求失败: ${error.message}`, false);
+            }
+        }
+
+        async function testWithHeaders() {
+            try {
+                const response = await fetch(`${API_BASE}/api/test/headers`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Custom-Header': 'Test-Value-123',
+                        'Authorization': 'Bearer test-token-456'
+                    },
+                    body: JSON.stringify({
+                        message: 'Request with custom headers',
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                const data = await response.json();
+                showResult('basicResult', `带请求头测试成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('basicResult', `带请求头测试失败: ${error.message}`, false);
+            }
+        }
+
+        async function getData() {
+            try {
+                const response = await fetch(`${API_BASE}/api/data`);
+                const data = await response.json();
+                showResult('basicResult', `获取数据成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('basicResult', `获取数据失败: ${error.message}`, false);
+            }
+        }
+
+        // CORS配置测试函数
+        async function testMethodLevelCors() {
+            try {
+                const response = await fetch(`${API_BASE}/cors/method-level`);
+                const data = await response.json();
+                showResult('corsResult', `方法级别CORS测试成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('corsResult', `方法级别CORS测试失败: ${error.message}`, false);
+            }
+        }
+
+        async function testSpecificPathCors() {
+            try {
+                const response = await fetch(`${API_BASE}/cors/specific-path`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Custom-Header': 'Specific-Path-Test'
+                    },
+                    body: JSON.stringify({
+                        message: 'Specific path CORS test',
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                const data = await response.json();
+                showResult('corsResult', `特定路径CORS测试成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('corsResult', `特定路径CORS测试失败: ${error.message}`, false);
+            }
+        }
+
+        async function testManualOptions() {
+            try {
+                // 先发送OPTIONS预检请求
+                const optionsResponse = await fetch(`${API_BASE}/cors/manual-options`, {
+                    method: 'OPTIONS'
+                });
+                
+                if (optionsResponse.ok) {
+                    // 然后发送GET请求
+                    const getResponse = await fetch(`${API_BASE}/cors/manual-options`);
+                    const data = await getResponse.json();
+                    showResult('corsResult', `手动OPTIONS处理测试成功:\n${JSON.stringify(data, null, 2)}`);
+                } else {
+                    showResult('corsResult', `OPTIONS预检请求失败`, false);
+                }
+            } catch (error) {
+                showResult('corsResult', `手动OPTIONS处理测试失败: ${error.message}`, false);
+            }
+        }
+
+        async function testComplexRequest() {
+            try {
+                const response = await fetch(`${API_BASE}/cors/complex-request`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Custom-Header': 'Complex-Request-Test',
+                        'Authorization': 'Bearer complex-test-token',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        message: 'Complex request test',
+                        data: {
+                            userId: 123,
+                            action: 'test',
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+                const data = await response.json();
+                showResult('corsResult', `复杂请求测试成功:\n${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('corsResult', `复杂请求测试失败: ${error.message}`, false);
+            }
+        }
+
+        // 批量测试
+        async function runAllTests() {
+            const tests = [
+                { name: 'GET请求', fn: testGet },
+                { name: 'POST请求', fn: testPost },
+                { name: 'PUT请求', fn: testPut },
+                { name: 'DELETE请求', fn: testDelete },
+                { name: '带请求头测试', fn: testWithHeaders },
+                { name: '获取数据', fn: getData },
+                { name: '方法级别CORS', fn: testMethodLevelCors },
+                { name: '特定路径CORS', fn: testSpecificPathCors },
+                { name: '手动OPTIONS处理', fn: testManualOptions },
+                { name: '复杂请求测试', fn: testComplexRequest }
+            ];
+
+            const container = document.getElementById('batchResult');
+            container.style.display = 'block';
+            container.textContent = '开始批量测试...\n';
+            container.className = 'result';
+
+            for (const test of tests) {
+                try {
+                    await test.fn();
+                    appendResult('batchResult', `${test.name} - 成功`);
+                } catch (error) {
+                    appendResult('batchResult', `${test.name} - 失败: ${error.message}`, false);
+                }
+                // 添加小延迟避免请求过快
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            appendResult('batchResult', '批量测试完成！');
+        }
+
+        // 清空结果
+        function clearResults() {
+            document.getElementById('basicResult').style.display = 'none';
+            document.getElementById('corsResult').style.display = 'none';
+            document.getElementById('batchResult').style.display = 'none';
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('CORS测试页面已加载');
+            console.log('请确保Spring Boot应用运行在 http://localhost:8080');
+        });
+    </script>
+</body>
+</html>
