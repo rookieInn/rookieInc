@@ -5,8 +5,13 @@ import java.util.stream.Stream;
 public class DirectoryCopyExample {
     
     public static void main(String[] args) {
-        String sourceDir = "source";
-        String destDir = "destination";
+        // Display system information
+        CrossPlatformFileUtils.displaySystemInfo();
+        System.out.println();
+        
+        // Use cross-platform path handling
+        String sourceDir = CrossPlatformFileUtils.normalizePath("source");
+        String destDir = CrossPlatformFileUtils.normalizePath("destination");
         
         try {
             // Create sample directory structure for testing
@@ -41,8 +46,12 @@ public class DirectoryCopyExample {
      * Note: This only copies the directory itself, not its contents
      */
     public static void copyDirectorySimple(String source, String destination) throws IOException {
-        Path sourcePath = Paths.get(source);
-        Path destPath = Paths.get(destination);
+        // Normalize paths for cross-platform compatibility
+        String normalizedSource = CrossPlatformFileUtils.normalizePath(source);
+        String normalizedDest = CrossPlatformFileUtils.normalizePath(destination);
+        
+        Path sourcePath = CrossPlatformFileUtils.createPath(normalizedSource);
+        Path destPath = CrossPlatformFileUtils.createPath(normalizedDest);
         
         if (!Files.exists(sourcePath)) {
             System.out.println("Source directory does not exist: " + source);
@@ -64,8 +73,12 @@ public class DirectoryCopyExample {
      * This method copies all files and subdirectories recursively
      */
     public static void copyDirectoryRecursive(String source, String destination) throws IOException {
-        Path sourcePath = Paths.get(source);
-        Path destPath = Paths.get(destination);
+        // Normalize paths for cross-platform compatibility
+        String normalizedSource = CrossPlatformFileUtils.normalizePath(source);
+        String normalizedDest = CrossPlatformFileUtils.normalizePath(destination);
+        
+        Path sourcePath = CrossPlatformFileUtils.createPath(normalizedSource);
+        Path destPath = CrossPlatformFileUtils.createPath(normalizedDest);
         
         if (!Files.exists(sourcePath)) {
             System.out.println("Source directory does not exist: " + source);
@@ -104,8 +117,9 @@ public class DirectoryCopyExample {
      * This method provides more control over the copying process
      */
     public static void copyDirectoryTraditional(String source, String destination) throws IOException {
-        File sourceDir = new File(source);
-        File destDir = new File(destination);
+        // Use cross-platform file creation
+        File sourceDir = CrossPlatformFileUtils.createFile(source);
+        File destDir = CrossPlatformFileUtils.createFile(destination);
         
         if (!sourceDir.exists()) {
             System.out.println("Source directory does not exist: " + source);
@@ -160,15 +174,15 @@ public class DirectoryCopyExample {
      * Utility method to create a sample directory structure for testing
      */
     public static void createSampleDirectory() throws IOException {
-        // Create source directory with some files and subdirectories
-        Files.createDirectories(Paths.get("source/subdir1"));
-        Files.createDirectories(Paths.get("source/subdir2"));
+        // Create source directory with some files and subdirectories using cross-platform paths
+        Files.createDirectories(CrossPlatformFileUtils.createPath("source", "subdir1"));
+        Files.createDirectories(CrossPlatformFileUtils.createPath("source", "subdir2"));
         
-        // Create some sample files
-        Files.write(Paths.get("source/file1.txt"), "Hello World!".getBytes());
-        Files.write(Paths.get("source/file2.txt"), "Java Directory Copy Example".getBytes());
-        Files.write(Paths.get("source/subdir1/file3.txt"), "Nested file content".getBytes());
-        Files.write(Paths.get("source/subdir2/file4.txt"), "Another nested file".getBytes());
+        // Create some sample files using cross-platform paths
+        Files.write(CrossPlatformFileUtils.createPath("source", "file1.txt"), "Hello World!".getBytes());
+        Files.write(CrossPlatformFileUtils.createPath("source", "file2.txt"), "Java Directory Copy Example".getBytes());
+        Files.write(CrossPlatformFileUtils.createPath("source", "subdir1", "file3.txt"), "Nested file content".getBytes());
+        Files.write(CrossPlatformFileUtils.createPath("source", "subdir2", "file4.txt"), "Another nested file".getBytes());
         
         System.out.println("Sample directory structure created in 'source' folder");
     }
