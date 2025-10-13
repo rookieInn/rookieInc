@@ -1,0 +1,54 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: captcha-demo
+  
+  # Redis配置（用于存储验证码）
+  redis:
+    host: localhost
+    port: 6379
+    password: 
+    database: 0
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-wait: -1ms
+        max-idle: 8
+        min-idle: 0
+
+  # Thymeleaf配置
+  thymeleaf:
+    cache: false
+    encoding: UTF-8
+    mode: HTML
+    prefix: classpath:/templates/
+    suffix: .html
+
+# 验证码配置
+captcha:
+  # 验证码长度
+  length: 4
+  # 验证码过期时间（秒）
+  expire-time: 300
+  # 图片宽度
+  width: 120
+  # 图片高度
+  height: 40
+  # 干扰线数量
+  line-count: 20
+  # 干扰点数量
+  point-count: 50
+  # 字体大小
+  font-size: 24
+  # 字符集
+  chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+logging:
+  level:
+    com.example: DEBUG
+    org.springframework: INFO

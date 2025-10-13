@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Boot 图形验证码演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .title {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .description {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .features {
+            text-align: left;
+            margin: 30px 0;
+        }
+        
+        .feature-item {
+            padding: 10px 0;
+            color: #555;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .feature-item:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-icon {
+            color: #667eea;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">🔐 Spring Boot 图形验证码</h1>
+        <p class="description">
+            这是一个完整的Spring Boot图形验证码解决方案，支持生成、验证和管理图形验证码。
+        </p>
+        
+        <div class="features">
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                自动生成随机验证码
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                支持干扰线和干扰点
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                Redis缓存存储
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                自动过期机制
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                RESTful API接口
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                响应式前端界面
+            </div>
+        </div>
+        
+        <a href="/demo" class="btn">查看演示</a>
+        <a href="/api/captcha/generate" class="btn" target="_blank">API测试</a>
+    </div>
+</body>
+</html>
