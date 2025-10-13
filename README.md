@@ -1,134 +1,249 @@
-# 人脸识别和活体检测系统
+# Spring Boot 图形验证码实现
 
-这是一个基于Python和GPU的人脸识别和活体检测系统，支持张嘴检测和眨眼检测。
+这是一个完整的Spring Boot图形验证码解决方案，提供了生成、验证和管理图形验证码的完整功能。
 
 ## 功能特性
 
-- ✅ **人脸检测**: 使用MediaPipe和dlib双重检测
-- ✅ **眨眼检测**: 基于眼睛纵横比(EAR)的实时眨眼检测
-- ✅ **张嘴检测**: 基于嘴部纵横比(MAR)的实时张嘴检测
-- ✅ **GPU加速**: 支持TensorFlow GPU加速
-- ✅ **实时处理**: 支持摄像头实时检测
-- ✅ **多模型支持**: MediaPipe + dlib双重保障
+- ✅ **自动生成随机验证码** - 支持自定义字符集和长度
+- ✅ **图形干扰效果** - 包含干扰线和干扰点，提高安全性
+- ✅ **Redis缓存存储** - 使用Redis存储验证码，支持分布式部署
+- ✅ **自动过期机制** - 验证码自动过期，防止重放攻击
+- ✅ **RESTful API接口** - 提供完整的REST API
+- ✅ **响应式前端界面** - 美观的Web界面，支持移动端
+- ✅ **可配置参数** - 支持自定义验证码样式和参数
 
 ## 技术栈
 
-- **OpenCV**: 图像处理和摄像头操作
-- **MediaPipe**: Google的人脸检测和关键点提取
-- **dlib**: 传统计算机视觉库，作为备用检测器
-- **TensorFlow**: GPU加速支持
-- **NumPy**: 数值计算
-- **SciPy**: 距离计算
+- **后端**: Spring Boot 2.7.14
+- **缓存**: Redis
+- **模板引擎**: Thymeleaf
+- **前端**: HTML5 + CSS3 + JavaScript
+- **构建工具**: Maven
 
-## 安装依赖
+## 快速开始
+
+### 1. 环境要求
+
+- Java 11+
+- Maven 3.6+
+- Redis 5.0+
+
+### 2. 安装Redis
+
+#### Ubuntu/Debian
+```bash
+sudo apt update
+sudo apt install redis-server
+sudo systemctl start redis-server
+sudo systemctl enable redis-server
+```
+
+#### CentOS/RHEL
+```bash
+sudo yum install redis
+sudo systemctl start redis
+sudo systemctl enable redis
+```
+
+#### Docker
+```bash
+docker run -d --name redis -p 6379:6379 redis:latest
+```
+
+### 3. 运行项目
 
 ```bash
-pip install -r requirements.txt
+# 克隆项目
+git clone <repository-url>
+cd captcha-demo
+
+# 编译项目
+mvn clean compile
+
+# 运行项目
+mvn spring-boot:run
 ```
 
-## 使用方法
+### 4. 访问应用
 
-### 1. 实时摄像头检测
+- 首页: http://localhost:8080
+- 演示页面: http://localhost:8080/demo
+- API文档: http://localhost:8080/api/captcha/generate
 
-```bash
-python face_liveness_detection.py
+## API接口
+
+### 1. 生成验证码
+
+```http
+GET /api/captcha/generate
 ```
 
-### 2. 运行测试
-
-```bash
-python test_liveness_detection.py
+**响应示例:**
+```json
+{
+  "success": true,
+  "message": "验证码生成成功",
+  "data": {
+    "imageBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "answer": "A3B7",
+    "captchaId": "abc123def456",
+    "expireTime": 1703123456789
+  }
+}
 ```
 
-### 3. 在代码中使用
+### 2. 验证验证码
 
-```python
-from face_liveness_detection import FaceLivenessDetector
+```http
+POST /api/captcha/verify
+Content-Type: application/x-www-form-urlencoded
 
-# 创建检测器
-detector = FaceLivenessDetector(use_gpu=True)
-
-# 检测单张图像
-import cv2
-image = cv2.imread("your_image.jpg")
-results = detector.detect_liveness(image)
-
-print(f"人脸检测: {results['face_detected']}")
-print(f"眨眼检测: {results['blink_detected']}")
-print(f"张嘴检测: {results['mouth_open_detected']}")
+captchaId=abc123def456&captchaCode=A3B7
 ```
 
-## 检测原理
-
-### 眨眼检测 (EAR - Eye Aspect Ratio)
-
-眨眼检测基于眼睛纵横比(EAR)算法：
-
-```
-EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
-```
-
-其中p1-p6是眼睛关键点的坐标。当EAR低于阈值时，表示眼睛闭合。
-
-### 张嘴检测 (MAR - Mouth Aspect Ratio)
-
-张嘴检测基于嘴部纵横比(MAR)算法：
-
-```
-MAR = (|p2-p10| + |p4-p8|) / (2 * |p1-p7|)
+**响应示例:**
+```json
+{
+  "success": true,
+  "message": "验证码验证成功",
+  "valid": true
+}
 ```
 
-其中p1-p10是嘴部关键点的坐标。当MAR高于阈值时，表示嘴巴张开。
+### 3. 刷新验证码
 
-## 参数调优
-
-可以在`FaceLivenessDetector`类中调整以下参数：
-
-```python
-# 眨眼检测参数
-self.EAR_THRESHOLD = 0.25  # 眼睛纵横比阈值
-self.EAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
-
-# 张嘴检测参数
-self.MAR_THRESHOLD = 0.5  # 嘴部纵横比阈值
-self.MAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
+```http
+GET /api/captcha/refresh
 ```
 
-## 性能优化
+## 配置说明
 
-1. **GPU加速**: 系统自动检测并使用GPU加速
-2. **多模型支持**: MediaPipe作为主要检测器，dlib作为备用
-3. **实时处理**: 优化的算法确保实时性能
+在 `application.yml` 中可以配置以下参数:
 
-## 系统要求
+```yaml
+captcha:
+  # 验证码长度
+  length: 4
+  # 验证码过期时间（秒）
+  expire-time: 300
+  # 图片宽度
+  width: 120
+  # 图片高度
+  height: 40
+  # 干扰线数量
+  line-count: 20
+  # 干扰点数量
+  point-count: 50
+  # 字体大小
+  font-size: 24
+  # 字符集
+  chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+```
 
-- Python 3.7+
-- OpenCV 4.x
-- CUDA支持的GPU (可选)
-- 摄像头设备
+## 项目结构
 
-## 注意事项
+```
+src/
+├── main/
+│   ├── java/com/example/
+│   │   ├── CaptchaDemoApplication.java          # 启动类
+│   │   ├── config/
+│   │   │   ├── CaptchaProperties.java          # 验证码配置属性
+│   │   │   ├── RedisConfig.java                # Redis配置
+│   │   │   └── WebConfig.java                  # Web配置
+│   │   ├── controller/
+│   │   │   ├── CaptchaController.java          # 验证码API控制器
+│   │   │   └── PageController.java             # 页面控制器
+│   │   ├── model/
+│   │   │   └── CaptchaResult.java              # 验证码结果模型
+│   │   └── service/
+│   │       └── CaptchaService.java             # 验证码服务类
+│   └── resources/
+│       ├── application.yml                     # 应用配置
+│       ├── static/css/
+│       │   └── style.css                       # 样式文件
+│       └── templates/
+│           ├── index.html                      # 首页
+│           └── demo.html                       # 演示页面
+└── test/                                       # 测试代码
+```
 
-1. 首次运行会自动下载dlib预训练模型
-2. 确保摄像头权限已开启
-3. 在光线充足的环境下效果更佳
-4. 建议人脸距离摄像头30-60cm
+## 使用示例
+
+### 前端JavaScript调用
+
+```javascript
+// 生成验证码
+async function generateCaptcha() {
+    const response = await fetch('/api/captcha/generate');
+    const result = await response.json();
+    
+    if (result.success) {
+        const data = result.data;
+        document.getElementById('captchaImage').src = data.imageBase64;
+        // 保存captchaId用于验证
+        window.captchaId = data.captchaId;
+    }
+}
+
+// 验证验证码
+async function verifyCaptcha(captchaCode) {
+    const formData = new FormData();
+    formData.append('captchaId', window.captchaId);
+    formData.append('captchaCode', captchaCode);
+    
+    const response = await fetch('/api/captcha/verify', {
+        method: 'POST',
+        body: formData
+    });
+    
+    const result = await response.json();
+    return result.valid;
+}
+```
+
+### Java代码集成
+
+```java
+@Autowired
+private CaptchaService captchaService;
+
+// 生成验证码
+CaptchaResult captcha = captchaService.generateCaptcha();
+
+// 验证验证码
+boolean isValid = captchaService.verifyCaptcha(captchaId, userInput);
+```
+
+## 安全建议
+
+1. **HTTPS部署** - 生产环境建议使用HTTPS
+2. **IP限制** - 可以添加IP访问频率限制
+3. **验证码复杂度** - 根据安全需求调整验证码复杂度
+4. **日志监控** - 监控验证码生成和验证的日志
+5. **Redis安全** - 确保Redis访问安全
 
 ## 故障排除
 
-### 常见问题
+### 1. Redis连接失败
+```
+检查Redis服务是否启动
+检查application.yml中的Redis配置
+检查网络连接
+```
 
-1. **GPU不可用**: 系统会自动回退到CPU模式
-2. **摄像头无法打开**: 检查摄像头权限和设备连接
-3. **检测精度低**: 调整阈值参数或改善光线条件
+### 2. 验证码图片不显示
+```
+检查Base64编码是否正确
+检查浏览器控制台是否有错误
+检查图片格式支持
+```
 
-### 调试模式
-
-在代码中设置调试模式：
-
-```python
-detector = FaceLivenessDetector(use_gpu=True)
-# 启用详细日志输出
+### 3. 验证码验证失败
+```
+检查验证码是否过期
+检查输入是否正确（大小写敏感）
+检查Redis中是否存储了验证码
 ```
 
 ## 许可证
@@ -138,3 +253,10 @@ MIT License
 ## 贡献
 
 欢迎提交Issue和Pull Request来改进这个项目。
+
+## 联系方式
+
+如有问题，请通过以下方式联系：
+
+- 邮箱: example@example.com
+- GitHub: https://github.com/example/captcha-demo
