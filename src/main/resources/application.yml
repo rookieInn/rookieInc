@@ -1,0 +1,79 @@
+# Spring Boot 配置文件
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+# 数据源配置
+spring:
+  datasource:
+    # 使用H2内存数据库进行演示
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    
+    # 如果使用MySQL，请取消注释以下配置并注释上面的H2配置
+    # driver-class-name: com.mysql.cj.jdbc.Driver
+    # url: jdbc:mysql://localhost:3306/mybatis_plus_demo?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    # username: root
+    # password: your_password
+    
+  # H2控制台配置（仅开发环境）
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# MyBatis Plus配置
+mybatis-plus:
+  # 配置扫描路径
+  mapper-locations: classpath:mapper/*.xml
+  # 配置实体类包路径
+  type-aliases-package: com.example.mybatisplus.entity
+  # 全局配置
+  global-config:
+    # 数据库字段驼峰下划线转换
+    db-config:
+      # 主键类型
+      id-type: auto
+      # 逻辑删除字段
+      logic-delete-field: deleted
+      # 逻辑删除值
+      logic-delete-value: 1
+      # 逻辑未删除值
+      logic-not-delete-value: 0
+    # 是否打印Banner
+    banner: false
+  # 配置
+  configuration:
+    # 是否开启自动驼峰命名规则映射
+    map-underscore-to-camel-case: true
+    # 开启MyBatis二级缓存
+    cache-enabled: false
+    # 打印SQL语句
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 日志配置
+logging:
+  level:
+    com.example.mybatisplus.mapper: debug
+    org.springframework.web: info
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 应用信息
+info:
+  app:
+    name: MyBatis Plus CRUD Demo
+    version: 1.0.0
+    description: 基于MyBatis Plus的CRUD操作示例
