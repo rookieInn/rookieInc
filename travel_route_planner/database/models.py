@@ -27,6 +27,8 @@ class User(Base):
     # 关联关系
     travel_plans = relationship("TravelPlan", back_populates="user")
     conversations = relationship("Conversation", back_populates="user")
+    comments = relationship("Comment", back_populates="user")
+    comment_likes = relationship("CommentLike", back_populates="user")
 
 
 class ScenicSpot(Base):
@@ -73,6 +75,7 @@ class TravelPlan(Base):
     user = relationship("User", back_populates="travel_plans")
     plan_spots = relationship("PlanSpot", back_populates="travel_plan", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="travel_plan")
+    comments = relationship("Comment", back_populates="travel_plan")
 
 
 class PlanSpot(Base):
@@ -109,6 +112,46 @@ class Conversation(Base):
     # 关联关系
     user = relationship("User", back_populates="conversations")
     travel_plan = relationship("TravelPlan", back_populates="conversations")
+
+
+class Comment(Base):
+    """评论表"""
+    __tablename__ = "comments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    plan_id = Column(Integer, ForeignKey("travel_plans.id"), nullable=False)
+    parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True)  # 父评论ID，用于多级回复
+    content = Column(Text, nullable=False)
+    is_deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # 关联关系
+    user = relationship("User", back_populates="comments")
+    travel_plan = relationship("TravelPlan", back_populates="comments")
+    parent = relationship("Comment", remote_side=[id], back_populates="replies")
+    replies = relationship("Comment", back_populates="parent", cascade="all, delete-orphan")
+    likes = relationship("CommentLike", back_populates="comment", cascade="all, delete-orphan")
+
+
+class CommentLike(Base):
+    """评论点赞表"""
+    __tablename__ = "comment_likes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    comment_id = Column(Integer, ForeignKey("comments.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # 关联关系
+    user = relationship("User", back_populates="comment_likes")
+    comment = relationship("Comment", back_populates="likes")
+    
+    # 确保用户对同一评论只能点赞一次
+    __table_args__ = (
+        {"extend_existing": True},
+    )
 
 
 class SystemCache(Base):
@@ -198,6 +241,44 @@ class ConversationResponse(BaseModel):
     message_type: str
     content: str
     metadata: Optional[dict]
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class CommentCreate(BaseModel):
+    content: str
+    plan_id: int
+    parent_id: Optional[int] = None
+
+
+class CommentResponse(BaseModel):
+    id: int
+    user_id: int
+    plan_id: int
+    parent_id: Optional[int]
+    content: str
+    is_deleted: bool
+    created_at: datetime
+    updated_at: datetime
+    like_count: int = 0
+    is_liked: bool = False
+    user: Optional[UserResponse] = None
+    replies: List['CommentResponse'] = []
+    
+    class Config:
+        from_attributes = True
+
+
+class CommentLikeCreate(BaseModel):
+    comment_id: int
+
+
+class CommentLikeResponse(BaseModel):
+    id: int
+    user_id: int
+    comment_id: int
     created_at: datetime
     
     class Config:

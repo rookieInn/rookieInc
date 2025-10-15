@@ -9,14 +9,15 @@ from datetime import datetime
 import logging
 
 from database.database import get_db
-from database.models import User, TravelPlan, ScenicSpot, Conversation
+from database.models import User, TravelPlan, ScenicSpot, Conversation, Comment, CommentLike
 from backend.ai_models import ai_manager
 from backend.route_planner import route_planner, RouteConstraint
 from backend.cache_manager import cache_manager
 from backend.auth import get_current_user, create_access_token, verify_password, get_password_hash
 from backend.schemas import (
     UserCreate, UserResponse, TravelPlanCreate, TravelPlanResponse,
-    ConversationCreate, ConversationResponse, RoutePlanRequest, RoutePlanResponse
+    ConversationCreate, ConversationResponse, RoutePlanRequest, RoutePlanResponse,
+    CommentCreate, CommentResponse, CommentLikeCreate, CommentLikeResponse, CommentUpdate
 )
 
 logger = logging.getLogger(__name__)
@@ -478,3 +479,338 @@ async def get_scenic_spots_for_destination(destination: str, db: Session) -> Lis
     ]
     
     return sample_spots
+
+
+# 评论相关路由
+@router.post("/comments", response_model=CommentResponse)
+async def create_comment(
+    comment_data: CommentCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """创建评论"""
+    
+    # 验证旅游计划是否存在
+    travel_plan = db.query(TravelPlan).filter(
+        TravelPlan.id == comment_data.plan_id,
+        TravelPlan.user_id == current_user.id
+    ).first()
+    
+    if not travel_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="旅游计划不存在"
+        )
+    
+    # 如果指定了父评论，验证父评论是否存在
+    if comment_data.parent_id:
+        parent_comment = db.query(Comment).filter(
+            Comment.id == comment_data.parent_id,
+            Comment.plan_id == comment_data.plan_id,
+            Comment.is_deleted == False
+        ).first()
+        
+        if not parent_comment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="父评论不存在"
+            )
+    
+    # 创建评论
+    comment = Comment(
+        user_id=current_user.id,
+        plan_id=comment_data.plan_id,
+        parent_id=comment_data.parent_id,
+        content=comment_data.content
+    )
+    
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    
+    # 返回评论信息
+    return CommentResponse(
+        id=comment.id,
+        user_id=comment.user_id,
+        plan_id=comment.plan_id,
+        parent_id=comment.parent_id,
+        content=comment.content,
+        is_deleted=comment.is_deleted,
+        created_at=comment.created_at,
+        updated_at=comment.updated_at,
+        like_count=0,
+        is_liked=False,
+        user=UserResponse.from_orm(current_user),
+        replies=[]
+    )
+
+
+@router.get("/comments/plan/{plan_id}", response_model=List[CommentResponse])
+async def get_plan_comments(
+    plan_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取旅游计划的评论列表（包含多级回复）"""
+    
+    # 验证旅游计划是否存在
+    travel_plan = db.query(TravelPlan).filter(
+        TravelPlan.id == plan_id,
+        TravelPlan.user_id == current_user.id
+    ).first()
+    
+    if not travel_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="旅游计划不存在"
+        )
+    
+    # 获取所有评论
+    comments = db.query(Comment).filter(
+        Comment.plan_id == plan_id,
+        Comment.is_deleted == False
+    ).order_by(Comment.created_at).all()
+    
+    # 构建评论树
+    comment_dict = {}
+    root_comments = []
+    
+    for comment in comments:
+        # 获取点赞数
+        like_count = db.query(CommentLike).filter(
+            CommentLike.comment_id == comment.id
+        ).count()
+        
+        # 检查当前用户是否点赞
+        is_liked = db.query(CommentLike).filter(
+            CommentLike.comment_id == comment.id,
+            CommentLike.user_id == current_user.id
+        ).first() is not None
+        
+        # 获取用户信息
+        user = db.query(User).filter(User.id == comment.user_id).first()
+        
+        comment_response = CommentResponse(
+            id=comment.id,
+            user_id=comment.user_id,
+            plan_id=comment.plan_id,
+            parent_id=comment.parent_id,
+            content=comment.content,
+            is_deleted=comment.is_deleted,
+            created_at=comment.created_at,
+            updated_at=comment.updated_at,
+            like_count=like_count,
+            is_liked=is_liked,
+            user=UserResponse.from_orm(user) if user else None,
+            replies=[]
+        )
+        
+        comment_dict[comment.id] = comment_response
+        
+        if comment.parent_id is None:
+            root_comments.append(comment_response)
+        else:
+            if comment.parent_id in comment_dict:
+                comment_dict[comment.parent_id].replies.append(comment_response)
+    
+    return root_comments
+
+
+@router.put("/comments/{comment_id}", response_model=CommentResponse)
+async def update_comment(
+    comment_id: int,
+    comment_data: CommentUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """更新评论"""
+    
+    # 获取评论
+    comment = db.query(Comment).filter(
+        Comment.id == comment_id,
+        Comment.user_id == current_user.id,
+        Comment.is_deleted == False
+    ).first()
+    
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="评论不存在或无权限修改"
+        )
+    
+    # 更新评论内容
+    comment.content = comment_data.content
+    comment.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(comment)
+    
+    # 获取点赞数
+    like_count = db.query(CommentLike).filter(
+        CommentLike.comment_id == comment.id
+    ).count()
+    
+    # 检查当前用户是否点赞
+    is_liked = db.query(CommentLike).filter(
+        CommentLike.comment_id == comment.id,
+        CommentLike.user_id == current_user.id
+    ).first() is not None
+    
+    return CommentResponse(
+        id=comment.id,
+        user_id=comment.user_id,
+        plan_id=comment.plan_id,
+        parent_id=comment.parent_id,
+        content=comment.content,
+        is_deleted=comment.is_deleted,
+        created_at=comment.created_at,
+        updated_at=comment.updated_at,
+        like_count=like_count,
+        is_liked=is_liked,
+        user=UserResponse.from_orm(current_user),
+        replies=[]
+    )
+
+
+@router.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """删除评论（软删除）"""
+    
+    # 获取评论
+    comment = db.query(Comment).filter(
+        Comment.id == comment_id,
+        Comment.user_id == current_user.id,
+        Comment.is_deleted == False
+    ).first()
+    
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="评论不存在或无权限删除"
+        )
+    
+    # 软删除评论
+    comment.is_deleted = True
+    comment.updated_at = datetime.utcnow()
+    
+    db.commit()
+    
+    return {"message": "评论已删除"}
+
+
+@router.post("/comments/{comment_id}/like", response_model=CommentLikeResponse)
+async def like_comment(
+    comment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """点赞评论"""
+    
+    # 验证评论是否存在
+    comment = db.query(Comment).filter(
+        Comment.id == comment_id,
+        Comment.is_deleted == False
+    ).first()
+    
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="评论不存在"
+        )
+    
+    # 检查是否已经点赞
+    existing_like = db.query(CommentLike).filter(
+        CommentLike.comment_id == comment_id,
+        CommentLike.user_id == current_user.id
+    ).first()
+    
+    if existing_like:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="已经点赞过此评论"
+        )
+    
+    # 创建点赞记录
+    like = CommentLike(
+        user_id=current_user.id,
+        comment_id=comment_id
+    )
+    
+    db.add(like)
+    db.commit()
+    db.refresh(like)
+    
+    return CommentLikeResponse.from_orm(like)
+
+
+@router.delete("/comments/{comment_id}/like")
+async def unlike_comment(
+    comment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """取消点赞评论"""
+    
+    # 查找点赞记录
+    like = db.query(CommentLike).filter(
+        CommentLike.comment_id == comment_id,
+        CommentLike.user_id == current_user.id
+    ).first()
+    
+    if not like:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="未找到点赞记录"
+        )
+    
+    # 删除点赞记录
+    db.delete(like)
+    db.commit()
+    
+    return {"message": "已取消点赞"}
+
+
+@router.get("/comments/{comment_id}/likes")
+async def get_comment_likes(
+    comment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取评论的点赞列表"""
+    
+    # 验证评论是否存在
+    comment = db.query(Comment).filter(
+        Comment.id == comment_id,
+        Comment.is_deleted == False
+    ).first()
+    
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="评论不存在"
+        )
+    
+    # 获取点赞记录
+    likes = db.query(CommentLike).filter(
+        CommentLike.comment_id == comment_id
+    ).order_by(CommentLike.created_at.desc()).all()
+    
+    # 获取用户信息
+    like_responses = []
+    for like in likes:
+        user = db.query(User).filter(User.id == like.user_id).first()
+        like_responses.append({
+            "id": like.id,
+            "user": UserResponse.from_orm(user) if user else None,
+            "created_at": like.created_at
+        })
+    
+    return {
+        "comment_id": comment_id,
+        "total_likes": len(like_responses),
+        "likes": like_responses
+    }
