@@ -7,6 +7,8 @@ let currentUser = null;
 let currentToken = null;
 let map = null;
 let chatSessionId = null;
+let currentPlanId = null;
+let comments = [];
 
 // API基础URL
 const API_BASE_URL = '/api/v1';
@@ -54,6 +56,7 @@ function setupEventListeners() {
     document.getElementById('planForm').addEventListener('submit', handlePlanSubmit);
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     document.getElementById('registerForm').addEventListener('submit', handleRegister);
+    document.getElementById('commentForm').addEventListener('submit', handleCommentSubmit);
     
     // 聊天功能
     document.getElementById('sendBtn').addEventListener('click', sendMessage);
@@ -641,9 +644,11 @@ function displayUserPlans(plans) {
 /**
  * 查看计划详情
  */
-function viewPlan(planId) {
-    // 这里可以实现查看计划详情的功能
-    showSuccess('查看计划详情功能开发中...');
+async function viewPlan(planId) {
+    currentPlanId = planId;
+    showSection('plan-detail');
+    await loadPlanDetail(planId);
+    await loadPlanComments(planId);
 }
 
 /**
@@ -721,4 +726,455 @@ function showNotification(message, type) {
             alertDiv.parentNode.removeChild(alertDiv);
         }
     }, 3000);
+}
+
+/**
+ * 查看计划详情
+ */
+async function viewPlan(planId) {
+    currentPlanId = planId;
+    showSection('plan-detail');
+    await loadPlanDetail(planId);
+    await loadPlanComments(planId);
+}
+
+/**
+ * 加载计划详情
+ */
+async function loadPlanDetail(planId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/plans/${planId}`, {
+            headers: {
+                'Authorization': `Bearer ${currentToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const plan = await response.json();
+            displayPlanDetail(plan);
+        } else {
+            throw new Error('加载计划详情失败');
+        }
+    } catch (error) {
+        console.error('加载计划详情失败:', error);
+        showError('加载计划详情失败: ' + error.message);
+    }
+}
+
+/**
+ * 显示计划详情
+ */
+function displayPlanDetail(plan) {
+    const content = document.getElementById('planDetailContent');
+    const sidebar = document.getElementById('planSidebar');
+    
+    const startDate = new Date(plan.start_date).toLocaleDateString('zh-CN');
+    const endDate = new Date(plan.end_date).toLocaleDateString('zh-CN');
+    
+    // 主要内容
+    content.innerHTML = `
+        <div class="plan-header mb-4">
+            <h4>${plan.title}</h4>
+            <p class="text-muted">
+                <i class="fas fa-map-marker-alt me-1"></i>${plan.destination} | 
+                <i class="fas fa-calendar me-1"></i>${startDate} - ${endDate} | 
+                <i class="fas fa-tag me-1"></i>${plan.travel_type || '未指定'}
+            </p>
+        </div>
+        <div class="plan-content">
+            <p>${plan.preferences?.description || '暂无详细描述'}</p>
+        </div>
+    `;
+    
+    // 侧边栏
+    sidebar.innerHTML = `
+        <div class="plan-info">
+            <h6>基本信息</h6>
+            <ul class="list-unstyled">
+                <li><strong>目的地:</strong> ${plan.destination}</li>
+                <li><strong>开始日期:</strong> ${startDate}</li>
+                <li><strong>结束日期:</strong> ${endDate}</li>
+                <li><strong>旅行类型:</strong> ${plan.travel_type || '未指定'}</li>
+                <li><strong>预算:</strong> ${plan.budget ? '¥' + plan.budget : '未设定'}</li>
+                <li><strong>状态:</strong> <span class="badge bg-primary">${plan.status}</span></li>
+            </ul>
+        </div>
+    `;
+}
+
+/**
+ * 加载计划评论
+ */
+async function loadPlanComments(planId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/comments/plan/${planId}`, {
+            headers: {
+                'Authorization': `Bearer ${currentToken}`
+            }
+        });
+        
+        if (response.ok) {
+            comments = await response.json();
+            displayComments(comments);
+        } else {
+            throw new Error('加载评论失败');
+        }
+    } catch (error) {
+        console.error('加载评论失败:', error);
+        showError('加载评论失败: ' + error.message);
+    }
+}
+
+/**
+ * 显示评论列表
+ */
+function displayComments(commentsList) {
+    const container = document.getElementById('commentsList');
+    
+    if (commentsList.length === 0) {
+        container.innerHTML = `
+            <div class="comment-empty">
+                <i class="fas fa-comments"></i>
+                <p>暂无评论，快来分享您的想法吧！</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    commentsList.forEach(comment => {
+        html += renderComment(comment, 1);
+    });
+    
+    container.innerHTML = html;
+}
+
+/**
+ * 渲染单个评论
+ */
+function renderComment(comment, level) {
+    const createdDate = new Date(comment.created_at).toLocaleString('zh-CN');
+    const isOwner = currentUser && comment.user_id === currentUser.id;
+    
+    let html = `
+        <div class="comment-item level-${level}" data-comment-id="${comment.id}">
+            <div class="comment-header">
+                <div class="comment-author">
+                    <i class="fas fa-user-circle"></i>
+                    <span>${comment.user?.username || '未知用户'}</span>
+                </div>
+                <div class="comment-time">${createdDate}</div>
+            </div>
+            <div class="comment-content">${comment.content}</div>
+            <div class="comment-actions">
+                <button class="comment-like-btn ${comment.is_liked ? 'liked' : ''}" 
+                        onclick="toggleCommentLike(${comment.id})">
+                    <i class="fas fa-heart"></i>
+                    <span>${comment.like_count}</span>
+                </button>
+                <button class="comment-reply-btn" onclick="toggleReplyForm(${comment.id})">
+                    <i class="fas fa-reply"></i>
+                    回复
+                </button>
+                ${isOwner ? `
+                    <button class="comment-edit-btn" onclick="toggleEditForm(${comment.id})">
+                        <i class="fas fa-edit"></i>
+                        编辑
+                    </button>
+                    <button class="comment-delete-btn" onclick="deleteComment(${comment.id})">
+                        <i class="fas fa-trash"></i>
+                        删除
+                    </button>
+                ` : ''}
+            </div>
+            <div class="comment-edit-form" id="edit-form-${comment.id}">
+                <textarea class="form-control" id="edit-content-${comment.id}" rows="3">${comment.content}</textarea>
+                <div class="comment-edit-actions">
+                    <button class="btn btn-sm btn-primary" onclick="saveCommentEdit(${comment.id})">保存</button>
+                    <button class="btn btn-sm btn-secondary" onclick="cancelCommentEdit(${comment.id})">取消</button>
+                </div>
+            </div>
+            <div class="comment-reply-form" id="reply-form-${comment.id}">
+                <textarea class="form-control" id="reply-content-${comment.id}" rows="3" placeholder="写下您的回复..."></textarea>
+                <div class="comment-edit-actions">
+                    <button class="btn btn-sm btn-primary" onclick="submitReply(${comment.id})">回复</button>
+                    <button class="btn btn-sm btn-secondary" onclick="cancelReply(${comment.id})">取消</button>
+                </div>
+            </div>
+            <div class="comment-replies" id="replies-${comment.id}">
+    `;
+    
+    // 渲染回复
+    if (comment.replies && comment.replies.length > 0) {
+        comment.replies.forEach(reply => {
+            html += renderComment(reply, level + 1);
+        });
+    }
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+/**
+ * 处理评论提交
+ */
+async function handleCommentSubmit(e) {
+    e.preventDefault();
+    
+    if (!currentUser) {
+        showError('请先登录');
+        showLoginModal();
+        return;
+    }
+    
+    const content = document.getElementById('commentContent').value.trim();
+    if (!content) {
+        showError('请输入评论内容');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        const response = await fetch(`${API_BASE_URL}/comments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({
+                content: content,
+                plan_id: currentPlanId
+            })
+        });
+        
+        if (response.ok) {
+            const newComment = await response.json();
+            // 重新加载评论列表
+            await loadPlanComments(currentPlanId);
+            // 清空表单
+            document.getElementById('commentContent').value = '';
+            hideLoading();
+            showSuccess('评论发表成功！');
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || '发表评论失败');
+        }
+    } catch (error) {
+        hideLoading();
+        showError('发表评论失败: ' + error.message);
+    }
+}
+
+/**
+ * 切换评论点赞
+ */
+async function toggleCommentLike(commentId) {
+    if (!currentUser) {
+        showError('请先登录');
+        showLoginModal();
+        return;
+    }
+    
+    try {
+        const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
+        const likeBtn = commentElement.querySelector('.comment-like-btn');
+        const isLiked = likeBtn.classList.contains('liked');
+        
+        const response = await fetch(`${API_BASE_URL}/comments/${commentId}/like`, {
+            method: isLiked ? 'DELETE' : 'POST',
+            headers: {
+                'Authorization': `Bearer ${currentToken}`
+            }
+        });
+        
+        if (response.ok) {
+            // 更新UI
+            if (isLiked) {
+                likeBtn.classList.remove('liked');
+                const countSpan = likeBtn.querySelector('span');
+                const currentCount = parseInt(countSpan.textContent);
+                countSpan.textContent = Math.max(0, currentCount - 1);
+            } else {
+                likeBtn.classList.add('liked');
+                const countSpan = likeBtn.querySelector('span');
+                const currentCount = parseInt(countSpan.textContent);
+                countSpan.textContent = currentCount + 1;
+            }
+        } else {
+            throw new Error('操作失败');
+        }
+    } catch (error) {
+        showError('操作失败: ' + error.message);
+    }
+}
+
+/**
+ * 切换回复表单
+ */
+function toggleReplyForm(commentId) {
+    const replyForm = document.getElementById(`reply-form-${commentId}`);
+    const isVisible = replyForm.classList.contains('show');
+    
+    // 隐藏所有其他回复表单
+    document.querySelectorAll('.comment-reply-form.show').forEach(form => {
+        form.classList.remove('show');
+    });
+    
+    if (!isVisible) {
+        replyForm.classList.add('show');
+        document.getElementById(`reply-content-${commentId}`).focus();
+    }
+}
+
+/**
+ * 取消回复
+ */
+function cancelReply(commentId) {
+    const replyForm = document.getElementById(`reply-form-${commentId}`);
+    replyForm.classList.remove('show');
+    document.getElementById(`reply-content-${commentId}`).value = '';
+}
+
+/**
+ * 提交回复
+ */
+async function submitReply(commentId) {
+    const content = document.getElementById(`reply-content-${commentId}`).value.trim();
+    if (!content) {
+        showError('请输入回复内容');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        const response = await fetch(`${API_BASE_URL}/comments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({
+                content: content,
+                plan_id: currentPlanId,
+                parent_id: commentId
+            })
+        });
+        
+        if (response.ok) {
+            // 重新加载评论列表
+            await loadPlanComments(currentPlanId);
+            hideLoading();
+            showSuccess('回复发表成功！');
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || '发表回复失败');
+        }
+    } catch (error) {
+        hideLoading();
+        showError('发表回复失败: ' + error.message);
+    }
+}
+
+/**
+ * 切换编辑表单
+ */
+function toggleEditForm(commentId) {
+    const editForm = document.getElementById(`edit-form-${commentId}`);
+    const isVisible = editForm.classList.contains('show');
+    
+    // 隐藏所有其他编辑表单
+    document.querySelectorAll('.comment-edit-form.show').forEach(form => {
+        form.classList.remove('show');
+    });
+    
+    if (!isVisible) {
+        editForm.classList.add('show');
+        document.getElementById(`edit-content-${commentId}`).focus();
+    }
+}
+
+/**
+ * 取消编辑
+ */
+function cancelCommentEdit(commentId) {
+    const editForm = document.getElementById(`edit-form-${commentId}`);
+    editForm.classList.remove('show');
+}
+
+/**
+ * 保存评论编辑
+ */
+async function saveCommentEdit(commentId) {
+    const content = document.getElementById(`edit-content-${commentId}`).value.trim();
+    if (!content) {
+        showError('请输入评论内容');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        const response = await fetch(`${API_BASE_URL}/comments/${commentId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({
+                content: content
+            })
+        });
+        
+        if (response.ok) {
+            // 重新加载评论列表
+            await loadPlanComments(currentPlanId);
+            hideLoading();
+            showSuccess('评论更新成功！');
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || '更新评论失败');
+        }
+    } catch (error) {
+        hideLoading();
+        showError('更新评论失败: ' + error.message);
+    }
+}
+
+/**
+ * 删除评论
+ */
+async function deleteComment(commentId) {
+    if (!confirm('确定要删除这条评论吗？')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        const response = await fetch(`${API_BASE_URL}/comments/${commentId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${currentToken}`
+            }
+        });
+        
+        if (response.ok) {
+            // 重新加载评论列表
+            await loadPlanComments(currentPlanId);
+            hideLoading();
+            showSuccess('评论删除成功！');
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || '删除评论失败');
+        }
+    } catch (error) {
+        hideLoading();
+        showError('删除评论失败: ' + error.message);
+    }
 }

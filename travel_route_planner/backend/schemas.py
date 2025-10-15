@@ -305,3 +305,62 @@ class CacheStatsResponse(BaseModel):
     redis_connected_clients: Optional[int] = None
     redis_keyspace_hits: Optional[int] = None
     redis_keyspace_misses: Optional[int] = None
+
+
+class CommentCreate(BaseModel):
+    """创建评论请求"""
+    content: str = Field(..., description="评论内容", min_length=1, max_length=1000)
+    plan_id: int = Field(..., description="旅游计划ID")
+    parent_id: Optional[int] = Field(None, description="父评论ID，用于回复")
+    
+    @validator('content')
+    def validate_content(cls, v):
+        if not v.strip():
+            raise ValueError('评论内容不能为空')
+        return v.strip()
+
+
+class CommentResponse(BaseModel):
+    """评论响应"""
+    id: int
+    user_id: int
+    plan_id: int
+    parent_id: Optional[int]
+    content: str
+    is_deleted: bool
+    created_at: datetime
+    updated_at: datetime
+    like_count: int = 0
+    is_liked: bool = False
+    user: Optional[UserResponse] = None
+    replies: List['CommentResponse'] = []
+    
+    class Config:
+        from_attributes = True
+
+
+class CommentLikeCreate(BaseModel):
+    """评论点赞请求"""
+    comment_id: int = Field(..., description="评论ID")
+
+
+class CommentLikeResponse(BaseModel):
+    """评论点赞响应"""
+    id: int
+    user_id: int
+    comment_id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class CommentUpdate(BaseModel):
+    """更新评论请求"""
+    content: str = Field(..., description="评论内容", min_length=1, max_length=1000)
+    
+    @validator('content')
+    def validate_content(cls, v):
+        if not v.strip():
+            raise ValueError('评论内容不能为空')
+        return v.strip()
