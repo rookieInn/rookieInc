@@ -1,0 +1,10 @@
+/workspace/src/main/java/com/example/category/repository/CategoryRepository.java
+/workspace/src/main/java/com/example/category/repository/impl/InMemoryCategoryRepository.java
+/workspace/src/main/java/com/example/category/model/Category.java
+/workspace/src/main/java/com/example/category/repository/CategoryJpaRepository.java
+/workspace/src/main/java/com/example/category/service/CategoryService.java
+/workspace/src/main/java/com/example/category/controller/CategoryRestController.java
+/workspace/src/main/java/com/example/category/CategoryApplication.java
+/workspace/src/main/java/com/example/category/controller/CategoryController.java
+/workspace/src/main/java/com/example/category/demo/CategoryDemo.java
+/workspace/src/main/java/com/example/category/entity/CategoryEntity.java

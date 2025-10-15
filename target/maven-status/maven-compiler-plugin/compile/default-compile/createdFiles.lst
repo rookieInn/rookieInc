@@ -1,0 +1,10 @@
+com/example/category/demo/CategoryDemo.class
+com/example/category/controller/CategoryController.class
+com/example/category/repository/CategoryJpaRepository.class
+com/example/category/service/CategoryService.class
+com/example/category/CategoryApplication.class
+com/example/category/entity/CategoryEntity.class
+com/example/category/repository/CategoryRepository.class
+com/example/category/repository/impl/InMemoryCategoryRepository.class
+com/example/category/model/Category.class
+com/example/category/controller/CategoryRestController.class
