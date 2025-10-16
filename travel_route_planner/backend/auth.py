@@ -12,6 +12,7 @@ from config.settings import settings
 from database.database import get_db
 from database.models import User
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None, session_id: Optional[str] = None):
     """创建访问令牌"""
     to_encode = data.copy()
     if expires_delta:
@@ -45,19 +46,27 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
-    to_encode.update({"exp": expire})
+    # 添加session_id用于单点登录控制
+    if session_id:
+        to_encode.update({"session_id": session_id})
+    
+    to_encode.update({
+        "exp": expire,
+        "iat": datetime.utcnow(),  # 签发时间
+        "jti": str(uuid.uuid4())   # JWT ID，用于唯一标识token
+    })
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
-def verify_token(token: str) -> Optional[str]:
-    """验证令牌并返回用户名"""
+def verify_token(token: str) -> Optional[dict]:
+    """验证令牌并返回payload"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             return None
-        return username
+        return payload
     except JWTError:
         return None
 
@@ -76,7 +85,11 @@ async def get_current_user(
     
     try:
         token = credentials.credentials
-        username = verify_token(token)
+        payload = verify_token(token)
+        if payload is None:
+            raise credentials_exception
+            
+        username = payload.get("sub")
         if username is None:
             raise credentials_exception
     except JWTError:
@@ -90,6 +103,14 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="账户已被禁用"
+        )
+    
+    # 验证token是否为当前有效的session token（单点登录控制）
+    if user.session_token != token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="登录已失效，请重新登录",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
     return user
