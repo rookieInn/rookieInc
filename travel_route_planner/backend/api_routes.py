@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import logging
+import uuid
 
 from database.database import get_db
 from database.models import User, TravelPlan, ScenicSpot, Conversation
@@ -74,18 +75,64 @@ async def login(username: str, password: str, db: Session = Depends(get_db)):
             detail="账户已被禁用"
         )
     
-    access_token = create_access_token(data={"sub": user.username})
+    # 生成新的session_id和token
+    session_id = str(uuid.uuid4())
+    access_token = create_access_token(
+        data={"sub": user.username}, 
+        session_id=session_id
+    )
+    
+    # 更新用户的session_token，使之前的登录失效
+    user.session_token = access_token
+    user.last_login_at = datetime.utcnow()
+    db.commit()
     
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user
+        "user": user,
+        "session_id": session_id
     }
 
 @router.get("/auth/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """获取当前用户信息"""
     return current_user
+
+@router.post("/auth/logout")
+async def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """用户登出"""
+    # 清除用户的session_token
+    current_user.session_token = None
+    db.commit()
+    
+    return {"message": "登出成功"}
+
+@router.post("/auth/force-logout/{user_id}")
+async def force_logout(
+    user_id: int, 
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """强制登出指定用户（仅管理员可用）"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要管理员权限"
+        )
+    
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
+        )
+    
+    # 清除目标用户的session_token
+    target_user.session_token = None
+    db.commit()
+    
+    return {"message": f"用户 {target_user.username} 已被强制登出"}
 
 # 路线规划相关路由
 @router.post("/route/plan", response_model=RoutePlanResponse)

@@ -21,6 +21,8 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
+    session_token = Column(String(500), nullable=True, index=True)  # 当前有效的JWT token
+    last_login_at = Column(DateTime, nullable=True)  # 最后登录时间
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
