@@ -1,557 +1,542 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-埋点数据分析和统计功能
-提供各种数据分析和可视化功能
+分享返佣裂变系统 - 追踪分析模块
+Referral Commission Fission System - Tracking Analytics
+
+功能特性：
+1. 实时数据追踪
+2. 用户行为分析
+3. 转化漏斗分析
+4. 返佣效果评估
+5. 数据报表生成
 """
 
+import sqlite3
+import json
+import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from collections import Counter, defaultdict
-import json
-import logging
-from tracking_models import TrackingDatabase
-
-# 设置中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
+from collections import defaultdict
+import numpy as np
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class TrackingAnalytics:
-    """埋点数据分析类"""
+    """追踪分析类"""
     
-    def __init__(self, db: TrackingDatabase):
-        """
-        初始化分析器
+    def __init__(self, db_path: str = "referral_system.db"):
+        self.db_path = db_path
+        self.setup_matplotlib()
+    
+    def setup_matplotlib(self):
+        """设置matplotlib中文字体"""
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
+        plt.rcParams['axes.unicode_minus'] = False
+    
+    def get_connection(self):
+        """获取数据库连接"""
+        return sqlite3.connect(self.db_path)
+    
+    def get_user_behavior_data(self, user_id: str = None, days: int = 30) -> Dict:
+        """获取用户行为数据"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
         
-        Args:
-            db: 数据库连接实例
-        """
-        self.db = db
-    
-    def get_user_behavior_summary(self, days: int = 7) -> Dict[str, Any]:
-        """
-        获取用户行为摘要
+        # 时间范围
+        start_date = datetime.now() - timedelta(days=days)
         
-        Args:
-            days: 分析天数
-            
-        Returns:
-            Dict[str, Any]: 用户行为摘要
-        """
-        try:
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=days)
-            
-            # 获取事件统计
-            event_stats = self.db.get_event_statistics(start_date, end_date)
-            
-            # 获取页面统计
-            page_stats = self.db.get_page_statistics(start_date, end_date)
-            
-            # 计算用户活跃度
-            active_users = self._get_active_users(start_date, end_date)
-            
-            # 计算会话统计
-            session_stats = self._get_session_statistics(start_date, end_date)
-            
-            return {
-                'period': {
-                    'start_date': start_date.isoformat(),
-                    'end_date': end_date.isoformat(),
-                    'days': days
-                },
-                'overview': {
-                    'total_events': event_stats.get('total_events', 0),
-                    'total_page_views': sum(p['views'] for p in page_stats.get('pages', [])),
-                    'active_users': active_users['unique_users'],
-                    'total_sessions': session_stats['total_sessions']
-                },
-                'event_types': event_stats.get('event_types', []),
-                'top_pages': page_stats.get('pages', [])[:10],
-                'user_activity': active_users,
-                'session_metrics': session_stats
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ 获取用户行为摘要失败: {e}")
-            return {}
-    
-    def _get_active_users(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
-        """获取活跃用户统计"""
-        try:
-            pipeline = [
-                {
-                    "$match": {
-                        "timestamp": {
-                            "$gte": start_date,
-                            "$lte": end_date
-                        },
-                        "user_id": {"$ne": None}
-                    }
-                },
-                {
-                    "$group": {
-                        "_id": "$user_id",
-                        "event_count": {"$sum": 1},
-                        "last_activity": {"$max": "$timestamp"},
-                        "sessions": {"$addToSet": "$session_id"}
-                    }
-                },
-                {
-                    "$project": {
-                        "user_id": "$_id",
-                        "event_count": 1,
-                        "last_activity": 1,
-                        "session_count": {"$size": "$sessions"}
-                    }
-                }
-            ]
-            
-            users = list(self.db.events_collection.aggregate(pipeline))
-            
-            return {
-                'unique_users': len(users),
-                'users': users,
-                'avg_events_per_user': sum(u['event_count'] for u in users) / len(users) if users else 0
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ 获取活跃用户统计失败: {e}")
-            return {'unique_users': 0, 'users': [], 'avg_events_per_user': 0}
-    
-    def _get_session_statistics(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
-        """获取会话统计"""
-        try:
-            pipeline = [
-                {
-                    "$match": {
-                        "timestamp": {
-                            "$gte": start_date,
-                            "$lte": end_date
-                        }
-                    }
-                },
-                {
-                    "$group": {
-                        "_id": "$session_id",
-                        "user_id": {"$first": "$user_id"},
-                        "start_time": {"$min": "$timestamp"},
-                        "end_time": {"$max": "$timestamp"},
-                        "event_count": {"$sum": 1},
-                        "page_views": {
-                            "$sum": {
-                                "$cond": [{"$eq": ["$event_type", "page_view"]}, 1, 0]
-                            }
-                        }
-                    }
-                },
-                {
-                    "$project": {
-                        "session_id": "$_id",
-                        "user_id": 1,
-                        "start_time": 1,
-                        "end_time": 1,
-                        "event_count": 1,
-                        "page_views": 1,
-                        "duration_minutes": {
-                            "$divide": [
-                                {"$subtract": ["$end_time", "$start_time"]},
-                                60000
-                            ]
-                        }
-                    }
-                }
-            ]
-            
-            sessions = list(self.db.events_collection.aggregate(pipeline))
-            
-            if not sessions:
-                return {
-                    'total_sessions': 0,
-                    'avg_duration_minutes': 0,
-                    'avg_events_per_session': 0,
-                    'avg_page_views_per_session': 0
-                }
-            
-            durations = [s['duration_minutes'] for s in sessions if s['duration_minutes'] > 0]
-            
-            return {
-                'total_sessions': len(sessions),
-                'avg_duration_minutes': sum(durations) / len(durations) if durations else 0,
-                'avg_events_per_session': sum(s['event_count'] for s in sessions) / len(sessions),
-                'avg_page_views_per_session': sum(s['page_views'] for s in sessions) / len(sessions),
-                'sessions': sessions
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ 获取会话统计失败: {e}")
-            return {
-                'total_sessions': 0,
-                'avg_duration_minutes': 0,
-                'avg_events_per_session': 0,
-                'avg_page_views_per_session': 0
-            }
-    
-    def get_funnel_analysis(self, funnel_steps: List[str], days: int = 7) -> Dict[str, Any]:
-        """
-        获取漏斗分析
+        # 基础查询条件
+        where_clause = "WHERE created_at >= ?"
+        params = [start_date]
         
-        Args:
-            funnel_steps: 漏斗步骤列表，按顺序排列
-            days: 分析天数
-            
-        Returns:
-            Dict[str, Any]: 漏斗分析结果
-        """
-        try:
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=days)
-            
-            # 获取每个步骤的用户数
-            step_counts = []
-            for i, step in enumerate(funnel_steps):
-                pipeline = [
-                    {
-                        "$match": {
-                            "timestamp": {"$gte": start_date, "$lte": end_date},
-                            "event_type": step
-                        }
-                    },
-                    {
-                        "$group": {
-                            "_id": "$user_id",
-                            "count": {"$sum": 1}
-                        }
-                    },
-                    {
-                        "$count": "unique_users"
-                    }
-                ]
-                
-                result = list(self.db.events_collection.aggregate(pipeline))
-                count = result[0]['unique_users'] if result else 0
-                step_counts.append({
-                    'step': step,
-                    'users': count,
-                    'conversion_rate': 0  # 将在下面计算
-                })
-            
-            # 计算转化率
-            for i in range(len(step_counts)):
-                if i == 0:
-                    step_counts[i]['conversion_rate'] = 100.0
-                else:
-                    previous_users = step_counts[i-1]['users']
-                    current_users = step_counts[i]['users']
-                    if previous_users > 0:
-                        step_counts[i]['conversion_rate'] = (current_users / previous_users) * 100
-                    else:
-                        step_counts[i]['conversion_rate'] = 0.0
-            
-            return {
-                'funnel_steps': step_counts,
-                'overall_conversion': step_counts[-1]['conversion_rate'] if step_counts else 0,
-                'period': {
-                    'start_date': start_date.isoformat(),
-                    'end_date': end_date.isoformat(),
-                    'days': days
-                }
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ 漏斗分析失败: {e}")
-            return {}
-    
-    def get_retention_analysis(self, days: int = 30) -> Dict[str, Any]:
-        """
-        获取用户留存分析
+        if user_id:
+            where_clause += " AND user_id = ?"
+            params.append(user_id)
         
-        Args:
-            days: 分析天数
-            
-        Returns:
-            Dict[str, Any]: 留存分析结果
-        """
-        try:
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=days)
-            
-            # 获取用户首次访问时间
-            first_visit_pipeline = [
-                {
-                    "$match": {
-                        "timestamp": {"$gte": start_date, "$lte": end_date},
-                        "user_id": {"$ne": None}
-                    }
-                },
-                {
-                    "$group": {
-                        "_id": "$user_id",
-                        "first_visit": {"$min": "$timestamp"}
-                    }
-                }
-            ]
-            
-            first_visits = list(self.db.events_collection.aggregate(first_visit_pipeline))
-            first_visit_dict = {v['_id']: v['first_visit'] for v in first_visits}
-            
-            # 计算留存率
-            retention_data = []
-            for day in range(1, 8):  # 1-7天留存
-                cohort_users = []
-                retained_users = []
-                
-                for user_id, first_visit in first_visit_dict.items():
-                    cohort_date = first_visit.date()
-                    if cohort_date >= (end_date - timedelta(days=days-day)).date():
-                        cohort_users.append(user_id)
-                        
-                        # 检查用户在首次访问后第N天是否活跃
-                        check_date = first_visit + timedelta(days=day)
-                        check_start = check_date.replace(hour=0, minute=0, second=0, microsecond=0)
-                        check_end = check_start + timedelta(days=1)
-                        
-                        user_events = self.db.events_collection.find({
-                            "user_id": user_id,
-                            "timestamp": {"$gte": check_start, "$lt": check_end}
-                        })
-                        
-                        if list(user_events):
-                            retained_users.append(user_id)
-                
-                retention_rate = (len(retained_users) / len(cohort_users) * 100) if cohort_users else 0
-                retention_data.append({
-                    'day': day,
-                    'cohort_size': len(cohort_users),
-                    'retained_users': len(retained_users),
-                    'retention_rate': retention_rate
-                })
-            
-            return {
-                'retention_data': retention_data,
-                'period': {
-                    'start_date': start_date.isoformat(),
-                    'end_date': end_date.isoformat(),
-                    'days': days
-                }
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ 留存分析失败: {e}")
-            return {}
-    
-    def generate_visualization_report(self, days: int = 7, output_dir: str = 'analytics_reports') -> str:
-        """
-        生成可视化报告
+        # 用户注册数据
+        cursor.execute(f'''
+            SELECT DATE(created_at) as date, COUNT(*) as count
+            FROM users {where_clause}
+            GROUP BY DATE(created_at)
+            ORDER BY date
+        ''', params)
+        user_registrations = dict(cursor.fetchall())
         
-        Args:
-            days: 分析天数
-            output_dir: 输出目录
-            
-        Returns:
-            str: 报告文件路径
-        """
-        try:
-            import os
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # 获取数据
-            summary = self.get_user_behavior_summary(days)
-            
-            # 创建图表
-            fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-            fig.suptitle(f'用户行为分析报告 - 最近{days}天', fontsize=16, fontweight='bold')
-            
-            # 1. 事件类型分布
-            if summary.get('event_types'):
-                event_types = [e['event_type'] for e in summary['event_types']]
-                event_counts = [e['count'] for e in summary['event_types']]
-                
-                axes[0, 0].pie(event_counts, labels=event_types, autopct='%1.1f%%')
-                axes[0, 0].set_title('事件类型分布')
-            
-            # 2. 页面访问TOP10
-            if summary.get('top_pages'):
-                pages = [p['page_url'][:30] + '...' if len(p['page_url']) > 30 else p['page_url'] 
-                        for p in summary['top_pages'][:10]]
-                views = [p['views'] for p in summary['top_pages'][:10]]
-                
-                axes[0, 1].barh(range(len(pages)), views)
-                axes[0, 1].set_yticks(range(len(pages)))
-                axes[0, 1].set_yticklabels(pages)
-                axes[0, 1].set_title('页面访问TOP10')
-                axes[0, 1].set_xlabel('访问次数')
-            
-            # 3. 用户活跃度趋势（模拟数据）
-            dates = [(datetime.now() - timedelta(days=i)).strftime('%m-%d') for i in range(days-1, -1, -1)]
-            # 这里应该从实际数据中获取每日活跃用户数
-            daily_active_users = [summary['overview']['active_users'] // days] * days
-            
-            axes[1, 0].plot(dates, daily_active_users, marker='o')
-            axes[1, 0].set_title('每日活跃用户数')
-            axes[1, 0].set_xlabel('日期')
-            axes[1, 0].set_ylabel('活跃用户数')
-            axes[1, 0].tick_params(axis='x', rotation=45)
-            
-            # 4. 关键指标
-            metrics = [
-                f"总事件数: {summary['overview']['total_events']:,}",
-                f"页面访问: {summary['overview']['total_page_views']:,}",
-                f"活跃用户: {summary['overview']['active_users']:,}",
-                f"总会话数: {summary['overview']['total_sessions']:,}"
-            ]
-            
-            axes[1, 1].text(0.1, 0.8, '\n'.join(metrics), transform=axes[1, 1].transAxes,
-                           fontsize=12, verticalalignment='top',
-                           bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
-            axes[1, 1].set_title('关键指标')
-            axes[1, 1].axis('off')
-            
-            plt.tight_layout()
-            
-            # 保存报告
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            report_path = os.path.join(output_dir, f'analytics_report_{timestamp}.png')
-            plt.savefig(report_path, dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            logger.info(f"✅ 可视化报告已生成: {report_path}")
-            return report_path
-            
-        except Exception as e:
-            logger.error(f"❌ 生成可视化报告失败: {e}")
-            return ""
-    
-    def export_data_to_csv(self, days: int = 7, output_dir: str = 'analytics_reports') -> Dict[str, str]:
-        """
-        导出数据到CSV文件
+        # 链接点击数据
+        cursor.execute(f'''
+            SELECT DATE(cr.clicked_at) as date, COUNT(*) as count
+            FROM click_records cr
+            JOIN referral_links rl ON cr.link_id = rl.link_id
+            {where_clause.replace('user_id', 'rl.user_id')}
+            GROUP BY DATE(cr.clicked_at)
+            ORDER BY date
+        ''', params)
+        link_clicks = dict(cursor.fetchall())
         
-        Args:
-            days: 分析天数
-            output_dir: 输出目录
-            
-        Returns:
-            Dict[str, str]: 导出的文件路径
-        """
-        try:
-            import os
-            os.makedirs(output_dir, exist_ok=True)
-            
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=days)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            
-            exported_files = {}
-            
-            # 导出事件数据
-            events = self.db.get_events_by_date_range(start_date, end_date)
-            if events:
-                events_df = pd.DataFrame(events)
-                events_file = os.path.join(output_dir, f'events_{timestamp}.csv')
-                events_df.to_csv(events_file, index=False, encoding='utf-8-sig')
-                exported_files['events'] = events_file
-            
-            # 导出页面访问数据
-            pageviews = self.db.get_page_views_by_date_range(start_date, end_date)
-            if pageviews:
-                pageviews_df = pd.DataFrame(pageviews)
-                pageviews_file = os.path.join(output_dir, f'pageviews_{timestamp}.csv')
-                pageviews_df.to_csv(pageviews_file, index=False, encoding='utf-8-sig')
-                exported_files['pageviews'] = pageviews_file
-            
-            logger.info(f"✅ 数据导出完成: {exported_files}")
-            return exported_files
-            
-        except Exception as e:
-            logger.error(f"❌ 数据导出失败: {e}")
-            return {}
-    
-    def get_real_time_stats(self) -> Dict[str, Any]:
-        """
-        获取实时统计信息
+        # 转化数据
+        cursor.execute(f'''
+            SELECT DATE(created_at) as date, COUNT(*) as count
+            FROM commissions {where_clause}
+            GROUP BY DATE(created_at)
+            ORDER BY date
+        ''', params)
+        conversions = dict(cursor.fetchall())
         
-        Returns:
-            Dict[str, Any]: 实时统计信息
+        conn.close()
+        
+        return {
+            'user_registrations': user_registrations,
+            'link_clicks': link_clicks,
+            'conversions': conversions
+        }
+    
+    def get_conversion_funnel(self, days: int = 30) -> Dict:
+        """获取转化漏斗数据"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        start_date = datetime.now() - timedelta(days=days)
+        
+        # 总点击量
+        cursor.execute('''
+            SELECT COUNT(*) FROM click_records cr
+            JOIN referral_links rl ON cr.link_id = rl.link_id
+            WHERE cr.clicked_at >= ?
+        ''', (start_date,))
+        total_clicks = cursor.fetchone()[0]
+        
+        # 通过分享链接注册的用户数
+        cursor.execute('''
+            SELECT COUNT(*) FROM users u
+            JOIN referral_links rl ON u.referrer_id = rl.user_id
+            WHERE u.created_at >= ?
+        ''', (start_date,))
+        registrations_from_links = cursor.fetchone()[0]
+        
+        # 总注册用户数
+        cursor.execute('''
+            SELECT COUNT(*) FROM users WHERE created_at >= ?
+        ''', (start_date,))
+        total_registrations = cursor.fetchone()[0]
+        
+        # 转化用户数
+        cursor.execute('''
+            SELECT COUNT(DISTINCT user_id) FROM commissions WHERE created_at >= ?
+        ''', (start_date,))
+        conversions = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        return {
+            'total_clicks': total_clicks,
+            'registrations_from_links': registrations_from_links,
+            'total_registrations': total_registrations,
+            'conversions': conversions,
+            'click_to_registration_rate': registrations_from_links / total_clicks if total_clicks > 0 else 0,
+            'registration_to_conversion_rate': conversions / total_registrations if total_registrations > 0 else 0,
+            'overall_conversion_rate': conversions / total_clicks if total_clicks > 0 else 0
+        }
+    
+    def get_commission_analysis(self, days: int = 30) -> Dict:
+        """获取返佣分析数据"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        start_date = datetime.now() - timedelta(days=days)
+        
+        # 返佣统计
+        cursor.execute('''
+            SELECT 
+                commission_type,
+                COUNT(*) as count,
+                SUM(amount) as total_amount,
+                AVG(amount) as avg_amount
+            FROM commissions 
+            WHERE created_at >= ?
+            GROUP BY commission_type
+        ''', (start_date,))
+        
+        commission_stats = {}
+        for row in cursor.fetchall():
+            commission_stats[row[0]] = {
+                'count': row[1],
+                'total_amount': row[2],
+                'avg_amount': row[3]
+            }
+        
+        # 返佣趋势
+        cursor.execute('''
+            SELECT DATE(created_at) as date, SUM(amount) as daily_amount
+            FROM commissions 
+            WHERE created_at >= ? AND status = 'confirmed'
+            GROUP BY DATE(created_at)
+            ORDER BY date
+        ''', (start_date,))
+        commission_trend = dict(cursor.fetchall())
+        
+        # 用户返佣排行
+        cursor.execute('''
+            SELECT 
+                u.username,
+                u.total_commission,
+                COUNT(c.commission_id) as commission_count
+            FROM users u
+            LEFT JOIN commissions c ON u.user_id = c.referrer_id
+            WHERE c.created_at >= ? OR c.created_at IS NULL
+            GROUP BY u.user_id
+            ORDER BY u.total_commission DESC
+            LIMIT 10
+        ''', (start_date,))
+        top_earners = cursor.fetchall()
+        
+        conn.close()
+        
+        return {
+            'commission_stats': commission_stats,
+            'commission_trend': commission_trend,
+            'top_earners': top_earners
+        }
+    
+    def get_user_retention_analysis(self, days: int = 30) -> Dict:
+        """获取用户留存分析"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        # 获取用户注册日期
+        cursor.execute('''
+            SELECT user_id, created_at FROM users 
+            WHERE created_at >= ?
+            ORDER BY created_at
+        ''', (datetime.now() - timedelta(days=days),))
+        
+        user_registrations = cursor.fetchall()
+        
+        # 计算留存率
+        retention_data = {}
+        for user_id, reg_date in user_registrations:
+            reg_date = datetime.strptime(reg_date, '%Y-%m-%d %H:%M:%S').date()
+            
+            # 检查用户是否有后续活动（点击或转化）
+            cursor.execute('''
+                SELECT COUNT(*) FROM (
+                    SELECT 1 FROM click_records cr
+                    JOIN referral_links rl ON cr.link_id = rl.link_id
+                    WHERE rl.user_id = ? AND DATE(cr.clicked_at) > ?
+                    UNION
+                    SELECT 1 FROM commissions WHERE user_id = ? AND DATE(created_at) > ?
+                )
+            ''', (user_id, reg_date, user_id, reg_date))
+            
+            has_activity = cursor.fetchone()[0] > 0
+            retention_data[user_id] = {
+                'reg_date': reg_date,
+                'retained': has_activity
+            }
+        
+        conn.close()
+        
+        # 按注册日期分组计算留存率
+        daily_retention = defaultdict(lambda: {'total': 0, 'retained': 0})
+        for user_id, data in retention_data.items():
+            date_key = data['reg_date'].strftime('%Y-%m-%d')
+            daily_retention[date_key]['total'] += 1
+            if data['retained']:
+                daily_retention[date_key]['retained'] += 1
+        
+        # 计算留存率
+        retention_rates = {}
+        for date, stats in daily_retention.items():
+            retention_rates[date] = stats['retained'] / stats['total'] if stats['total'] > 0 else 0
+        
+        return {
+            'daily_retention': dict(daily_retention),
+            'retention_rates': retention_rates,
+            'overall_retention': sum(data['retained'] for data in retention_data.values()) / len(retention_data) if retention_data else 0
+        }
+    
+    def generate_analytics_report(self, days: int = 30, output_file: str = None) -> str:
+        """生成分析报告"""
+        logger.info(f"开始生成{days}天分析报告...")
+        
+        # 获取各项数据
+        behavior_data = self.get_user_behavior_data(days=days)
+        funnel_data = self.get_conversion_funnel(days=days)
+        commission_data = self.get_commission_analysis(days=days)
+        retention_data = self.get_user_retention_analysis(days=days)
+        
+        # 生成报告内容
+        report = f"""
+# 分享返佣裂变系统分析报告
+
+## 报告时间范围
+- 开始时间: {(datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')}
+- 结束时间: {datetime.now().strftime('%Y-%m-%d')}
+- 分析天数: {days}天
+
+## 1. 用户行为分析
+
+### 1.1 用户注册趋势
+- 总注册用户: {sum(behavior_data['user_registrations'].values())}人
+- 平均每日注册: {sum(behavior_data['user_registrations'].values()) / days:.1f}人/天
+
+### 1.2 链接点击分析
+- 总点击次数: {sum(behavior_data['link_clicks'].values())}次
+- 平均每日点击: {sum(behavior_data['link_clicks'].values()) / days:.1f}次/天
+
+### 1.3 转化分析
+- 总转化次数: {sum(behavior_data['conversions'].values())}次
+- 平均每日转化: {sum(behavior_data['conversions'].values()) / days:.1f}次/天
+
+## 2. 转化漏斗分析
+
+### 2.1 漏斗数据
+- 总点击量: {funnel_data['total_clicks']}次
+- 通过链接注册: {funnel_data['registrations_from_links']}人
+- 总注册用户: {funnel_data['total_registrations']}人
+- 转化用户: {funnel_data['conversions']}人
+
+### 2.2 转化率
+- 点击到注册转化率: {funnel_data['click_to_registration_rate']:.2%}
+- 注册到转化转化率: {funnel_data['registration_to_conversion_rate']:.2%}
+- 整体转化率: {funnel_data['overall_conversion_rate']:.2%}
+
+## 3. 返佣分析
+
+### 3.1 返佣统计
+"""
+        
+        for comm_type, stats in commission_data['commission_stats'].items():
+            report += f"- {comm_type}: {stats['count']}次, 总金额: ¥{stats['total_amount']:.2f}, 平均: ¥{stats['avg_amount']:.2f}\n"
+        
+        report += f"""
+### 3.2 返佣趋势
+- 总返佣金额: ¥{sum(commission_data['commission_trend'].values()):.2f}
+- 平均每日返佣: ¥{sum(commission_data['commission_trend'].values()) / days:.2f}
+
+### 3.3 返佣排行榜 (Top 10)
+"""
+        
+        for i, (username, total_commission, count) in enumerate(commission_data['top_earners'][:10], 1):
+            report += f"{i}. {username}: ¥{total_commission:.2f} ({count}次)\n"
+        
+        report += f"""
+## 4. 用户留存分析
+
+### 4.1 留存率统计
+- 整体留存率: {retention_data['overall_retention']:.2%}
+- 活跃用户数: {sum(data['retained'] for data in retention_data['daily_retention'].values())}人
+
+## 5. 关键指标总结
+
+| 指标 | 数值 | 说明 |
+|------|------|------|
+| 总用户数 | {sum(behavior_data['user_registrations'].values())} | 分析期间内注册的用户总数 |
+| 总点击量 | {sum(behavior_data['link_clicks'].values())} | 分享链接的总点击次数 |
+| 总转化数 | {sum(behavior_data['conversions'].values())} | 成功转化的订单数 |
+| 整体转化率 | {funnel_data['overall_conversion_rate']:.2%} | 从点击到转化的整体转化率 |
+| 总返佣金额 | ¥{sum(commission_data['commission_trend'].values()):.2f} | 分析期间内的总返佣金额 |
+| 用户留存率 | {retention_data['overall_retention']:.2%} | 用户注册后的活跃留存率 |
+
+## 6. 建议与优化
+
+### 6.1 转化率优化
+- 当前整体转化率为 {funnel_data['overall_conversion_rate']:.2%}
+- 建议优化分享链接的吸引力和转化页面设计
+- 考虑增加激励机制提高转化率
+
+### 6.2 用户留存优化
+- 当前用户留存率为 {retention_data['overall_retention']:.2%}
+- 建议增加用户粘性功能，如积分系统、等级制度等
+- 定期推送个性化内容提高用户活跃度
+
+### 6.3 返佣策略优化
+- 当前返佣总额为 ¥{sum(commission_data['commission_trend'].values()):.2f}
+- 建议根据用户层级调整返佣比例
+- 考虑增加特殊奖励机制激励高价值用户
+
+---
+报告生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
-        try:
-            now = datetime.now()
-            last_hour = now - timedelta(hours=1)
-            last_24h = now - timedelta(hours=24)
-            
-            # 最近1小时事件数
-            recent_events = self.db.events_collection.count_documents({
-                "timestamp": {"$gte": last_hour}
-            })
-            
-            # 最近24小时事件数
-            daily_events = self.db.events_collection.count_documents({
-                "timestamp": {"$gte": last_24h}
-            })
-            
-            # 当前在线用户（最近5分钟有活动的用户）
-            online_threshold = now - timedelta(minutes=5)
-            online_users = len(self.db.events_collection.distinct("user_id", {
-                "timestamp": {"$gte": online_threshold},
-                "user_id": {"$ne": None}
-            }))
-            
-            return {
-                'timestamp': now.isoformat(),
-                'recent_events_1h': recent_events,
-                'recent_events_24h': daily_events,
-                'online_users': online_users,
-                'status': 'healthy' if self.db else 'unhealthy'
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ 获取实时统计失败: {e}")
-            return {
-                'timestamp': datetime.now().isoformat(),
-                'recent_events_1h': 0,
-                'recent_events_24h': 0,
-                'online_users': 0,
-                'status': 'error',
-                'error': str(e)
-            }
+        
+        # 保存报告
+        if output_file:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(report)
+            logger.info(f"分析报告已保存到: {output_file}")
+        
+        return report
+    
+    def create_visualization_charts(self, days: int = 30, output_dir: str = "charts"):
+        """创建可视化图表"""
+        import os
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 获取数据
+        behavior_data = self.get_user_behavior_data(days=days)
+        funnel_data = self.get_conversion_funnel(days=days)
+        commission_data = self.get_commission_analysis(days=days)
+        
+        # 设置图表样式
+        plt.style.use('seaborn-v0_8')
+        fig_size = (12, 8)
+        
+        # 1. 用户注册趋势图
+        plt.figure(figsize=fig_size)
+        dates = sorted(behavior_data['user_registrations'].keys())
+        counts = [behavior_data['user_registrations'].get(d, 0) for d in dates]
+        
+        plt.plot(dates, counts, marker='o', linewidth=2, markersize=6)
+        plt.title(f'用户注册趋势 ({days}天)', fontsize=16, fontweight='bold')
+        plt.xlabel('日期', fontsize=12)
+        plt.ylabel('注册用户数', fontsize=12)
+        plt.xticks(rotation=45)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/user_registration_trend.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        # 2. 转化漏斗图
+        plt.figure(figsize=fig_size)
+        funnel_stages = ['点击', '注册', '转化']
+        funnel_values = [
+            funnel_data['total_clicks'],
+            funnel_data['total_registrations'],
+            funnel_data['conversions']
+        ]
+        
+        bars = plt.bar(funnel_stages, funnel_values, color=['#667eea', '#764ba2', '#38a169'])
+        plt.title(f'转化漏斗分析 ({days}天)', fontsize=16, fontweight='bold')
+        plt.ylabel('数量', fontsize=12)
+        
+        # 添加数值标签
+        for bar, value in zip(bars, funnel_values):
+            plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(funnel_values)*0.01,
+                    f'{value}', ha='center', va='bottom', fontweight='bold')
+        
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/conversion_funnel.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        # 3. 返佣趋势图
+        plt.figure(figsize=fig_size)
+        comm_dates = sorted(commission_data['commission_trend'].keys())
+        comm_amounts = [commission_data['commission_trend'].get(d, 0) for d in comm_dates]
+        
+        plt.plot(comm_dates, comm_amounts, marker='s', linewidth=2, markersize=6, color='#e53e3e')
+        plt.title(f'返佣趋势 ({days}天)', fontsize=16, fontweight='bold')
+        plt.xlabel('日期', fontsize=12)
+        plt.ylabel('返佣金额 (¥)', fontsize=12)
+        plt.xticks(rotation=45)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/commission_trend.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        # 4. 返佣类型分布饼图
+        plt.figure(figsize=fig_size)
+        comm_types = list(commission_data['commission_stats'].keys())
+        comm_counts = [commission_data['commission_stats'][t]['count'] for t in comm_types]
+        
+        colors = ['#667eea', '#764ba2', '#38a169', '#e53e3e', '#f6ad55']
+        plt.pie(comm_counts, labels=comm_types, autopct='%1.1f%%', colors=colors[:len(comm_types)])
+        plt.title(f'返佣类型分布 ({days}天)', fontsize=16, fontweight='bold')
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/commission_type_distribution.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        logger.info(f"可视化图表已保存到: {output_dir}/")
+    
+    def get_real_time_metrics(self) -> Dict:
+        """获取实时指标"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        # 今日数据
+        today = datetime.now().date()
+        
+        # 今日注册用户
+        cursor.execute('SELECT COUNT(*) FROM users WHERE DATE(created_at) = ?', (today,))
+        today_registrations = cursor.fetchone()[0]
+        
+        # 今日点击量
+        cursor.execute('''
+            SELECT COUNT(*) FROM click_records cr
+            JOIN referral_links rl ON cr.link_id = rl.link_id
+            WHERE DATE(cr.clicked_at) = ?
+        ''', (today,))
+        today_clicks = cursor.fetchone()[0]
+        
+        # 今日转化
+        cursor.execute('SELECT COUNT(*) FROM commissions WHERE DATE(created_at) = ?', (today,))
+        today_conversions = cursor.fetchone()[0]
+        
+        # 今日返佣
+        cursor.execute('SELECT SUM(amount) FROM commissions WHERE DATE(created_at) = ? AND status = "confirmed"', (today,))
+        today_commission = cursor.fetchone()[0] or 0
+        
+        # 实时活跃用户（最近1小时有活动的用户）
+        one_hour_ago = datetime.now() - timedelta(hours=1)
+        cursor.execute('''
+            SELECT COUNT(DISTINCT rl.user_id) FROM click_records cr
+            JOIN referral_links rl ON cr.link_id = rl.link_id
+            WHERE cr.clicked_at >= ?
+        ''', (one_hour_ago,))
+        active_users = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        return {
+            'today_registrations': today_registrations,
+            'today_clicks': today_clicks,
+            'today_conversions': today_conversions,
+            'today_commission': today_commission,
+            'active_users_1h': active_users,
+            'timestamp': datetime.now().isoformat()
+        }
 
 def main():
     """主函数 - 演示分析功能"""
-    try:
-        # 初始化数据库连接
-        db = TrackingDatabase()
-        analytics = TrackingAnalytics(db)
-        
-        print("🔍 开始数据分析...")
-        
-        # 获取用户行为摘要
-        summary = analytics.get_user_behavior_summary(days=7)
-        print(f"📊 用户行为摘要: {json.dumps(summary, indent=2, ensure_ascii=False)}")
-        
-        # 获取实时统计
-        realtime = analytics.get_real_time_stats()
-        print(f"⏰ 实时统计: {json.dumps(realtime, indent=2, ensure_ascii=False)}")
-        
-        # 生成可视化报告
-        report_path = analytics.generate_visualization_report(days=7)
-        if report_path:
-            print(f"📈 可视化报告已生成: {report_path}")
-        
-        # 导出数据
-        exported_files = analytics.export_data_to_csv(days=7)
-        if exported_files:
-            print(f"📁 数据已导出: {exported_files}")
-        
-        db.close()
-        
-    except Exception as e:
-        logger.error(f"❌ 分析失败: {e}")
+    analytics = TrackingAnalytics()
+    
+    print("=== 分享返佣裂变系统 - 追踪分析演示 ===\n")
+    
+    # 1. 生成分析报告
+    print("1. 生成30天分析报告...")
+    report = analytics.generate_analytics_report(days=30, output_file="analytics_report.md")
+    print("分析报告已生成: analytics_report.md")
+    
+    # 2. 创建可视化图表
+    print("\n2. 创建可视化图表...")
+    analytics.create_visualization_charts(days=30, output_dir="charts")
+    print("图表已保存到: charts/ 目录")
+    
+    # 3. 获取实时指标
+    print("\n3. 实时指标:")
+    metrics = analytics.get_real_time_metrics()
+    print(f"今日注册: {metrics['today_registrations']}人")
+    print(f"今日点击: {metrics['today_clicks']}次")
+    print(f"今日转化: {metrics['today_conversions']}次")
+    print(f"今日返佣: ¥{metrics['today_commission']:.2f}")
+    print(f"1小时活跃用户: {metrics['active_users_1h']}人")
+    
+    # 4. 转化漏斗分析
+    print("\n4. 转化漏斗分析:")
+    funnel = analytics.get_conversion_funnel(days=30)
+    print(f"总点击: {funnel['total_clicks']}次")
+    print(f"总注册: {funnel['total_registrations']}人")
+    print(f"总转化: {funnel['conversions']}人")
+    print(f"整体转化率: {funnel['overall_conversion_rate']:.2%}")
+    
+    # 5. 用户留存分析
+    print("\n5. 用户留存分析:")
+    retention = analytics.get_user_retention_analysis(days=30)
+    print(f"整体留存率: {retention['overall_retention']:.2%}")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

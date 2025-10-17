@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分享返佣裂变系统 - 数据看板</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .card h3 {
+            color: #4a5568;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f7fafc;
+        }
+        
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-label {
+            color: #718096;
+            font-weight: 500;
+        }
+        
+        .stat-value {
+            color: #2d3748;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .stat-value.positive {
+            color: #38a169;
+        }
+        
+        .stat-value.negative {
+            color: #e53e3e;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: #718096;
+        }
+        
+        .btn-success {
+            background: #38a169;
+        }
+        
+        .btn-danger {
+            background: #e53e3e;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            color: #22543d;
+        }
+        
+        .alert-error {
+            background: #fed7d7;
+            border: 1px solid #feb2b2;
+            color: #742a2a;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .table th, .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .table th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .table tr:hover {
+            background: #f7fafc;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 10px;
+            padding: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 分享返佣裂变系统</h1>
+            <p>数据看板与管理系统</p>
+        </div>
+        
+        <!-- 标签页导航 -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('overview')">总览</div>
+            <div class="tab" onclick="switchTab('users')">用户管理</div>
+            <div class="tab" onclick="switchTab('links')">分享链接</div>
+            <div class="tab" onclick="switchTab('commissions')">返佣记录</div>
+            <div class="tab" onclick="switchTab('analytics')">数据分析</div>
+        </div>
+        
+        <!-- 总览页面 -->
+        <div id="overview" class="tab-content active">
+            <div class="dashboard">
+                <div class="card">
+                    <h3>📊 系统概览</h3>
+                    <div id="system-stats">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>👥 用户统计</h3>
+                    <div id="user-stats">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>🔗 链接统计</h3>
+                    <div id="link-stats">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>💰 返佣统计</h3>
+                    <div id="commission-stats">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>📈 转化率趋势</h3>
+                <div class="chart-container">
+                    <canvas id="conversionChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 用户管理页面 -->
+        <div id="users" class="tab-content">
+            <div class="card">
+                <h3>👤 用户注册</h3>
+                <form id="user-register-form">
+                    <div class="form-group">
+                        <label for="username">用户名</label>
+                        <input type="text" id="username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">邮箱</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">手机号</label>
+                        <input type="tel" id="phone" name="phone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="referrer_code">推荐人邀请码（可选）</label>
+                        <input type="text" id="referrer_code" name="referrer_code">
+                    </div>
+                    <button type="submit" class="btn">注册用户</button>
+                </form>
+                <div id="register-result"></div>
+            </div>
+            
+            <div class="card">
+                <h3>🔍 用户查询</h3>
+                <div class="form-group">
+                    <label for="user-id">用户ID</label>
+                    <input type="text" id="user-id" placeholder="输入用户ID查询">
+                </div>
+                <button onclick="getUserInfo()" class="btn btn-secondary">查询用户</button>
+                <div id="user-info-result"></div>
+            </div>
+        </div>
+        
+        <!-- 分享链接页面 -->
+        <div id="links" class="tab-content">
+            <div class="card">
+                <h3>🔗 创建分享链接</h3>
+                <form id="link-create-form">
+                    <div class="form-group">
+                        <label for="link-user-id">用户ID</label>
+                        <input type="text" id="link-user-id" name="user_id" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="original-url">原始URL</label>
+                        <input type="url" id="original-url" name="original_url" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="expires-days">有效期（天）</label>
+                        <input type="number" id="expires-days" name="expires_days" value="30" min="1" max="365">
+                    </div>
+                    <button type="submit" class="btn">创建链接</button>
+                </form>
+                <div id="link-create-result"></div>
+            </div>
+            
+            <div class="card">
+                <h3>📋 我的分享链接</h3>
+                <div class="form-group">
+                    <label for="links-user-id">用户ID</label>
+                    <input type="text" id="links-user-id" placeholder="输入用户ID查看分享链接">
+                </div>
+                <button onclick="getUserLinks()" class="btn btn-secondary">查看链接</button>
+                <div id="user-links-result"></div>
+            </div>
+        </div>
+        
+        <!-- 返佣记录页面 -->
+        <div id="commissions" class="tab-content">
+            <div class="card">
+                <h3>💰 处理转化</h3>
+                <form id="conversion-form">
+                    <div class="form-group">
+                        <label for="conversion-user-id">用户ID</label>
+                        <input type="text" id="conversion-user-id" name="user_id" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="order-id">订单ID</label>
+                        <input type="text" id="order-id" name="order_id" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="amount">订单金额</label>
+                        <input type="number" id="amount" name="amount" step="0.01" required>
+                    </div>
+                    <button type="submit" class="btn btn-success">处理转化</button>
+                </form>
+                <div id="conversion-result"></div>
+            </div>
+            
+            <div class="card">
+                <h3>📊 返佣记录</h3>
+                <div class="form-group">
+                    <label for="commissions-user-id">用户ID</label>
+                    <input type="text" id="commissions-user-id" placeholder="输入用户ID查看返佣记录">
+                </div>
+                <button onclick="getUserCommissions()" class="btn btn-secondary">查看记录</button>
+                <div id="user-commissions-result"></div>
+            </div>
+        </div>
+        
+        <!-- 数据分析页面 -->
+        <div id="analytics" class="tab-content">
+            <div class="card">
+                <h3>📈 系统分析</h3>
+                <div id="analytics-data">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>📊 转化漏斗</h3>
+                <div class="chart-container">
+                    <canvas id="funnelChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let conversionChart, funnelChart;
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSystemStats();
+            loadAnalytics();
+            initCharts();
+            
+            // 绑定表单事件
+            document.getElementById('user-register-form').addEventListener('submit', handleUserRegister);
+            document.getElementById('link-create-form').addEventListener('submit', handleLinkCreate);
+            document.getElementById('conversion-form').addEventListener('submit', handleConversion);
+        });
+        
+        // 切换标签页
+        function switchTab(tabName) {
+            // 隐藏所有标签页内容
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 移除所有标签的激活状态
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 显示选中的标签页
+            document.getElementById(tabName).classList.add('active');
+            
+            // 激活对应的标签
+            event.target.classList.add('active');
+            
+            // 根据标签页加载相应数据
+            if (tabName === 'overview') {
+                loadSystemStats();
+            } else if (tabName === 'analytics') {
+                loadAnalytics();
+            }
+        }
+        
+        // 加载系统统计
+        async function loadSystemStats() {
+            try {
+                const response = await fetch('/api/analytics');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    
+                    // 更新系统概览
+                    document.getElementById('system-stats').innerHTML = `
+                        <div class="stat-item">
+                            <span class="stat-label">总用户数</span>
+                            <span class="stat-value positive">${data.users.total}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">30天新用户</span>
+                            <span class="stat-value positive">${data.users.new_30d}</span>
+                        </div>
+                    `;
+                    
+                    // 更新链接统计
+                    document.getElementById('link-stats').innerHTML = `
+                        <div class="stat-item">
+                            <span class="stat-label">总链接数</span>
+                            <span class="stat-value">${data.links.total}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">总点击量</span>
+                            <span class="stat-value positive">${data.links.total_clicks}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">总转化量</span>
+                            <span class="stat-value positive">${data.links.total_conversions}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">转化率</span>
+                            <span class="stat-value positive">${(data.links.conversion_rate * 100).toFixed(2)}%</span>
+                        </div>
+                    `;
+                    
+                    // 更新返佣统计
+                    document.getElementById('commission-stats').innerHTML = `
+                        <div class="stat-item">
+                            <span class="stat-label">总返佣金额</span>
+                            <span class="stat-value positive">¥${data.commissions.total_amount.toFixed(2)}</span>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载系统统计失败:', error);
+            }
+        }
+        
+        // 加载分析数据
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/api/analytics');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    document.getElementById('analytics-data').innerHTML = `
+                        <div class="stat-item">
+                            <span class="stat-label">系统总用户</span>
+                            <span class="stat-value">${data.users.total}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">活跃链接</span>
+                            <span class="stat-value">${data.links.total}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">总点击次数</span>
+                            <span class="stat-value positive">${data.links.total_clicks}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">成功转化</span>
+                            <span class="stat-value positive">${data.links.total_conversions}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">整体转化率</span>
+                            <span class="stat-value positive">${(data.links.conversion_rate * 100).toFixed(2)}%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">累计返佣</span>
+                            <span class="stat-value positive">¥${data.commissions.total_amount.toFixed(2)}</span>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载分析数据失败:', error);
+            }
+        }
+        
+        // 初始化图表
+        function initCharts() {
+            // 转化率趋势图
+            const ctx1 = document.getElementById('conversionChart').getContext('2d');
+            conversionChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+                    datasets: [{
+                        label: '转化率 (%)',
+                        data: [12, 19, 15, 25, 22, 30],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+            
+            // 转化漏斗图
+            const ctx2 = document.getElementById('funnelChart').getContext('2d');
+            funnelChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['点击', '注册', '转化'],
+                    datasets: [{
+                        data: [1000, 300, 100],
+                        backgroundColor: ['#667eea', '#764ba2', '#38a169'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 处理用户注册
+        async function handleUserRegister(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('register-result').innerHTML = `
+                        <div class="alert alert-success">
+                            注册成功！<br>
+                            用户ID: ${result.data.user_id}<br>
+                            邀请码: ${result.data.invite_code}
+                        </div>
+                    `;
+                    event.target.reset();
+                } else {
+                    document.getElementById('register-result').innerHTML = `
+                        <div class="alert alert-error">${result.message}</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('register-result').innerHTML = `
+                    <div class="alert alert-error">注册失败: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // 处理分享链接创建
+        async function handleLinkCreate(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch('/api/link/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('link-create-result').innerHTML = `
+                        <div class="alert alert-success">
+                            分享链接创建成功！<br>
+                            短链接: <a href="${result.data.short_url}" target="_blank">${result.data.short_url}</a><br>
+                            短代码: ${result.data.short_code}
+                        </div>
+                    `;
+                    event.target.reset();
+                } else {
+                    document.getElementById('link-create-result').innerHTML = `
+                        <div class="alert alert-error">${result.message}</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('link-create-result').innerHTML = `
+                    <div class="alert alert-error">创建失败: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // 处理转化
+        async function handleConversion(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData);
+            data.amount = parseFloat(data.amount);
+            
+            try {
+                const response = await fetch('/api/conversion', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    let commissionHtml = '<div class="alert alert-success">转化处理成功！<br>返佣记录:<br>';
+                    result.data.commissions.forEach(comm => {
+                        commissionHtml += `- ${comm.referrer_id}: ¥${comm.amount.toFixed(2)} (${comm.type})<br>`;
+                    });
+                    commissionHtml += '</div>';
+                    
+                    document.getElementById('conversion-result').innerHTML = commissionHtml;
+                    event.target.reset();
+                } else {
+                    document.getElementById('conversion-result').innerHTML = `
+                        <div class="alert alert-error">${result.message}</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('conversion-result').innerHTML = `
+                    <div class="alert alert-error">处理失败: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // 获取用户信息
+        async function getUserInfo() {
+            const userId = document.getElementById('user-id').value;
+            if (!userId) {
+                alert('请输入用户ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/user/${userId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    document.getElementById('user-info-result').innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>用户信息:</strong><br>
+                            用户名: ${data.user_info.username}<br>
+                            总返佣: ¥${data.user_info.total_commission.toFixed(2)}<br>
+                            层级: ${data.user_info.level}<br>
+                            注册时间: ${data.user_info.created_at}<br><br>
+                            <strong>分享统计:</strong><br>
+                            分享链接: ${data.link_stats.total_links}个<br>
+                            总点击: ${data.link_stats.total_clicks}次<br>
+                            总转化: ${data.link_stats.total_conversions}次<br><br>
+                            <strong>返佣统计:</strong><br>
+                            返佣次数: ${data.commission_stats.total_commissions}次<br>
+                            返佣金额: ¥${data.commission_stats.total_amount.toFixed(2)}
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('user-info-result').innerHTML = `
+                        <div class="alert alert-error">${result.message}</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('user-info-result').innerHTML = `
+                    <div class="alert alert-error">查询失败: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // 获取用户分享链接
+        async function getUserLinks() {
+            const userId = document.getElementById('links-user-id').value;
+            if (!userId) {
+                alert('请输入用户ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/links/${userId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    let linksHtml = '<table class="table"><thead><tr><th>短链接</th><th>原始URL</th><th>点击次数</th><th>转化次数</th><th>创建时间</th></tr></thead><tbody>';
+                    
+                    result.data.forEach(link => {
+                        linksHtml += `
+                            <tr>
+                                <td><a href="${link.short_url}" target="_blank">${link.short_url}</a></td>
+                                <td>${link.original_url}</td>
+                                <td>${link.click_count}</td>
+                                <td>${link.conversion_count}</td>
+                                <td>${link.created_at}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    linksHtml += '</tbody></table>';
+                    document.getElementById('user-links-result').innerHTML = linksHtml;
+                } else {
+                    document.getElementById('user-links-result').innerHTML = `
+                        <div class="alert alert-error">${result.message}</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('user-links-result').innerHTML = `
+                    <div class="alert alert-error">查询失败: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // 获取用户返佣记录
+        async function getUserCommissions() {
+            const userId = document.getElementById('commissions-user-id').value;
+            if (!userId) {
+                alert('请输入用户ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/commissions/${userId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    let commissionsHtml = '<table class="table"><thead><tr><th>返佣ID</th><th>金额</th><th>类型</th><th>订单ID</th><th>状态</th><th>创建时间</th></tr></thead><tbody>';
+                    
+                    result.data.forEach(comm => {
+                        commissionsHtml += `
+                            <tr>
+                                <td>${comm.commission_id}</td>
+                                <td>¥${comm.amount.toFixed(2)}</td>
+                                <td>${comm.type}</td>
+                                <td>${comm.order_id}</td>
+                                <td>${comm.status}</td>
+                                <td>${comm.created_at}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    commissionsHtml += '</tbody></table>';
+                    document.getElementById('user-commissions-result').innerHTML = commissionsHtml;
+                } else {
+                    document.getElementById('user-commissions-result').innerHTML = `
+                        <div class="alert alert-error">${result.message}</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('user-commissions-result').innerHTML = `
+                    <div class="alert alert-error">查询失败: ${error.message}</div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
