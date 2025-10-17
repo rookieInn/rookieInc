@@ -1,9 +1,29 @@
-opencv-python==4.8.1.78
-dlib==19.24.2
+# 分享返佣裂变系统依赖包
+# Referral Commission Fission System Dependencies
+
+# Web框架
+Flask==2.3.3
+Flask-CORS==4.0.0
+
+# 数据处理
+pandas==2.0.3
 numpy==1.24.3
-imutils==0.5.4
-scipy==1.11.3
-tensorflow-gpu==2.13.0
-mediapipe==0.10.7
-pillow==10.0.1
+
+# 数据可视化
 matplotlib==3.7.2
+seaborn==0.12.2
+
+# 数据库
+sqlite3  # Python内置，无需安装
+
+# 其他工具
+uuid  # Python内置，无需安装
+hashlib  # Python内置，无需安装
+json  # Python内置，无需安装
+logging  # Python内置，无需安装
+datetime  # Python内置，无需安装
+typing  # Python内置，无需安装
+dataclasses  # Python内置，无需安装
+enum  # Python内置，无需安装
+collections  # Python内置，无需安装
+os  # Python内置，无需安装
