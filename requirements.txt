@@ -7,3 +7,9 @@ tensorflow-gpu==2.13.0
 mediapipe==0.10.7
 pillow==10.0.1
 matplotlib==3.7.2
+# Alibaba Cloud dependencies
+aliyun-python-sdk-core==2.14.0
+aliyun-python-sdk-green==3.0.0
+aliyun-python-sdk-imageaudit==1.0.0
+aliyun-python-sdk-viapi==1.0.0
+requests==2.31.0
