@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Fluentd服务
+  fluentd:
+    image: fluent/fluentd:v1.16-debian-1
+    container_name: fluentd-server
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    volumes:
+      - ./fluentd.conf:/fluentd/etc/fluent.conf
+      - ./logs:/var/log/fluentd
+    environment:
+      - FLUENTD_CONF=fluent.conf
+    networks:
+      - fluentd-network
+
+  # Elasticsearch服务（可选，用于日志存储和查询）
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - fluentd-network
+
+  # Kibana服务（可选，用于日志可视化）
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.8.0
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - fluentd-network
+
+  # Java应用（用于测试）
+  java-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.fluentd
+    container_name: java-fluentd-app
+    depends_on:
+      - fluentd
+    environment:
+      - FLUENTD_HOST=fluentd
+      - FLUENTD_PORT=24224
+    networks:
+      - fluentd-network
+    volumes:
+      - ./logs:/app/logs
+
+volumes:
+  elasticsearch_data:
+
+networks:
+  fluentd-network:
+    driver: bridge

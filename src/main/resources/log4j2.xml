@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <!-- 控制台输出 -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+        
+        <!-- 文件输出 -->
+        <File name="FileAppender" fileName="logs/application.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </File>
+        
+        <!-- Fluentd输出 -->
+        <FluentdAppender name="FluentdAppender" 
+                        tag="java.logs" 
+                        host="localhost" 
+                        port="24224"
+                        timeout="3000"
+                        bufferCapacity="8192">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </FluentdAppender>
+        
+        <!-- 异步Fluentd输出 -->
+        <AsyncAppender name="AsyncFluentd" bufferSize="1024">
+            <FluentdAppender name="FluentdAppender" 
+                            tag="java.logs" 
+                            host="localhost" 
+                            port="24224"
+                            timeout="3000"
+                            bufferCapacity="8192">
+                <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            </FluentdAppender>
+        </AsyncAppender>
+    </Appenders>
+    
+    <Loggers>
+        <!-- 根日志器 -->
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+            <AppenderRef ref="AsyncFluentd"/>
+        </Root>
+        
+        <!-- 应用特定日志器 -->
+        <Logger name="com.example.fluentd" level="DEBUG" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
+            <AppenderRef ref="AsyncFluentd"/>
+        </Logger>
+    </Loggers>
+</Configuration>
