@@ -1,0 +1,346 @@
+{
+  "analysis_time": "2025-09-18T01:52:19.393226",
+  "log_file": "sample_nginx_access.log",
+  "summary": {
+    "total_requests": 49,
+    "unique_urls": 17,
+    "unique_ips": 41,
+    "date_range": {
+      "start": "2023-12-25",
+      "end": "2023-12-25"
+    }
+  },
+  "top_urls": [
+    [
+      "/index.html",
+      8
+    ],
+    [
+      "/products.html",
+      6
+    ],
+    [
+      "/about.html",
+      5
+    ],
+    [
+      "/contact.html",
+      5
+    ],
+    [
+      "/css/style.css",
+      4
+    ],
+    [
+      "/js/app.js",
+      4
+    ],
+    [
+      "/api/users",
+      3
+    ],
+    [
+      "/images/logo.png",
+      3
+    ],
+    [
+      "/api/products",
+      2
+    ],
+    [
+      "/images/banner.jpg",
+      2
+    ],
+    [
+      "/favicon.ico",
+      1
+    ],
+    [
+      "/api/login",
+      1
+    ],
+    [
+      "/api/status",
+      1
+    ],
+    [
+      "/robots.txt",
+      1
+    ],
+    [
+      "/sitemap.xml",
+      1
+    ],
+    [
+      "/admin/login",
+      1
+    ],
+    [
+      "/api/health",
+      1
+    ]
+  ],
+  "status_codes": {
+    "200": 47,
+    "404": 1,
+    "401": 1
+  },
+  "http_methods": {
+    "GET": 48,
+    "POST": 1
+  },
+  "top_user_agents": [
+    [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      19
+    ],
+    [
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      12
+    ],
+    [
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+      6
+    ],
+    [
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15",
+      5
+    ],
+    [
+      "Mozilla/5.0 (Android 10; Mobile; rv:68.0) Gecko/68.0 Firefox/68.0",
+      4
+    ],
+    [
+      "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+      2
+    ],
+    [
+      "Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X) AppleWebKit/605.1.15",
+      1
+    ]
+  ],
+  "top_referers": [
+    [
+      "http://example.com/index.html",
+      14
+    ],
+    [
+      "http://example.com/about.html",
+      5
+    ],
+    [
+      "http://example.com/products.html",
+      5
+    ]
+  ],
+  "top_ips": [
+    [
+      "192.168.1.100",
+      4
+    ],
+    [
+      "192.168.1.101",
+      3
+    ],
+    [
+      "192.168.1.102",
+      3
+    ],
+    [
+      "192.168.1.103",
+      2
+    ],
+    [
+      "192.168.1.104",
+      1
+    ],
+    [
+      "192.168.1.105",
+      1
+    ],
+    [
+      "192.168.1.106",
+      1
+    ],
+    [
+      "192.168.1.107",
+      1
+    ],
+    [
+      "192.168.1.108",
+      1
+    ],
+    [
+      "192.168.1.109",
+      1
+    ],
+    [
+      "192.168.1.110",
+      1
+    ],
+    [
+      "192.168.1.111",
+      1
+    ],
+    [
+      "192.168.1.112",
+      1
+    ],
+    [
+      "192.168.1.113",
+      1
+    ],
+    [
+      "192.168.1.114",
+      1
+    ],
+    [
+      "192.168.1.115",
+      1
+    ],
+    [
+      "192.168.1.116",
+      1
+    ],
+    [
+      "192.168.1.117",
+      1
+    ],
+    [
+      "192.168.1.118",
+      1
+    ],
+    [
+      "192.168.1.119",
+      1
+    ]
+  ],
+  "hourly_distribution": {
+    "10": 30,
+    "11": 19
+  },
+  "daily_distribution": {
+    "2023-12-25": 49
+  },
+  "response_size_stats": {
+    "/index.html": {
+      "count": 8,
+      "avg_size": 1234.0,
+      "min_size": 1234,
+      "max_size": 1234,
+      "total_size": 9872
+    },
+    "/about.html": {
+      "count": 5,
+      "avg_size": 2567.0,
+      "min_size": 2567,
+      "max_size": 2567,
+      "total_size": 12835
+    },
+    "/products.html": {
+      "count": 6,
+      "avg_size": 3456.0,
+      "min_size": 3456,
+      "max_size": 3456,
+      "total_size": 20736
+    },
+    "/contact.html": {
+      "count": 5,
+      "avg_size": 1890.0,
+      "min_size": 1890,
+      "max_size": 1890,
+      "total_size": 9450
+    },
+    "/api/users": {
+      "count": 3,
+      "avg_size": 456.0,
+      "min_size": 456,
+      "max_size": 456,
+      "total_size": 1368
+    },
+    "/images/logo.png": {
+      "count": 3,
+      "avg_size": 12345.0,
+      "min_size": 12345,
+      "max_size": 12345,
+      "total_size": 37035
+    },
+    "/favicon.ico": {
+      "count": 1,
+      "avg_size": 162.0,
+      "min_size": 162,
+      "max_size": 162,
+      "total_size": 162
+    },
+    "/api/login": {
+      "count": 1,
+      "avg_size": 234.0,
+      "min_size": 234,
+      "max_size": 234,
+      "total_size": 234
+    },
+    "/css/style.css": {
+      "count": 4,
+      "avg_size": 5678.0,
+      "min_size": 5678,
+      "max_size": 5678,
+      "total_size": 22712
+    },
+    "/js/app.js": {
+      "count": 4,
+      "avg_size": 8901.0,
+      "min_size": 8901,
+      "max_size": 8901,
+      "total_size": 35604
+    },
+    "/api/products": {
+      "count": 2,
+      "avg_size": 1234.0,
+      "min_size": 1234,
+      "max_size": 1234,
+      "total_size": 2468
+    },
+    "/images/banner.jpg": {
+      "count": 2,
+      "avg_size": 45678.0,
+      "min_size": 45678,
+      "max_size": 45678,
+      "total_size": 91356
+    },
+    "/api/status": {
+      "count": 1,
+      "avg_size": 89.0,
+      "min_size": 89,
+      "max_size": 89,
+      "total_size": 89
+    },
+    "/robots.txt": {
+      "count": 1,
+      "avg_size": 123.0,
+      "min_size": 123,
+      "max_size": 123,
+      "total_size": 123
+    },
+    "/sitemap.xml": {
+      "count": 1,
+      "avg_size": 2345.0,
+      "min_size": 2345,
+      "max_size": 2345,
+      "total_size": 2345
+    },
+    "/admin/login": {
+      "count": 1,
+      "avg_size": 156.0,
+      "min_size": 156,
+      "max_size": 156,
+      "total_size": 156
+    },
+    "/api/health": {
+      "count": 1,
+      "avg_size": 45.0,
+      "min_size": 45,
+      "max_size": 45,
+      "total_size": 45
+    }
+  }
+}
