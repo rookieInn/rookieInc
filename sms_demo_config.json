@@ -1,0 +1,43 @@
+{
+  "providers": {
+    "aliyun_primary": {
+      "provider": "aliyun",
+      "access_key": "LTAI5tDemoKey123456789",
+      "secret_key": "DemoSecretKey123456789",
+      "sign_name": "演示签名",
+      "template_id": "SMS_123456789",
+      "endpoint": "https://dysmsapi.aliyuncs.com",
+      "region": "cn-hangzhou",
+      "enabled": true,
+      "priority": 1,
+      "daily_limit": 1000,
+      "cost_per_sms": 0.045
+    },
+    "tencent_backup": {
+      "provider": "tencent",
+      "access_key": "AKIDDemoKey123456789",
+      "secret_key": "DemoSecretKey123456789",
+      "sign_name": "演示签名",
+      "template_id": "1234567",
+      "endpoint": "https://sms.tencentcloudapi.com",
+      "region": "ap-beijing",
+      "enabled": true,
+      "priority": 2,
+      "daily_limit": 1000,
+      "cost_per_sms": 0.045
+    },
+    "huawei_emergency": {
+      "provider": "huawei",
+      "access_key": "HW_DemoKey123456789",
+      "secret_key": "DemoSecretKey123456789",
+      "sign_name": "演示签名",
+      "template_id": "1234567890123456789",
+      "endpoint": "https://rtcsms.cn-north-4.myhuaweicloud.com",
+      "region": "cn-north-4",
+      "enabled": false,
+      "priority": 3,
+      "daily_limit": 500,
+      "cost_per_sms": 0.04
+    }
+  }
+}
