@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.mapper.UserMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="UserResultMap" type="com.example.entity.User">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="email" column="email"/>
+        <result property="roleIds" column="role_ids" 
+                typeHandler="com.example.typehandler.JsonListTypeHandler"/>
+    </resultMap>
+    
+    <!-- 基础查询字段 -->
+    <sql id="Base_Column_List">
+        id, name, email, role_ids
+    </sql>
+    
+    <!-- 根据ID查询用户 -->
+    <select id="selectById" parameterType="long" resultMap="UserResultMap">
+        SELECT 
+        <include refid="Base_Column_List"/>
+        FROM users 
+        WHERE id = #{id}
+    </select>
+    
+    <!-- 查询所有用户 -->
+    <select id="selectAll" resultMap="UserResultMap">
+        SELECT 
+        <include refid="Base_Column_List"/>
+        FROM users
+    </select>
+    
+    <!-- 插入用户 -->
+    <insert id="insert" parameterType="com.example.entity.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (name, email, role_ids)
+        VALUES (#{name}, #{email}, 
+                <choose>
+                    <when test="roleIds != null and roleIds.size() > 0">
+                        JSON_ARRAY(
+                        <foreach collection="roleIds" item="roleId" separator=",">
+                            #{roleId}
+                        </foreach>
+                        )
+                    </when>
+                    <otherwise>
+                        JSON_ARRAY()
+                    </otherwise>
+                </choose>
+                )
+    </insert>
+    
+    <!-- 更新用户 -->
+    <update id="update" parameterType="com.example.entity.User">
+        UPDATE users 
+        SET name = #{name},
+            email = #{email},
+            role_ids = <choose>
+                <when test="roleIds != null and roleIds.size() > 0">
+                    JSON_ARRAY(
+                    <foreach collection="roleIds" item="roleId" separator=",">
+                        #{roleId}
+                    </foreach>
+                    )
+                </when>
+                <otherwise>
+                    JSON_ARRAY()
+                </otherwise>
+            </choose>
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 删除用户 -->
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM users WHERE id = #{id}
+    </delete>
+    
+    <!-- 核心方法1: 判断指定ID是否在用户的roleIds JSON字段中 -->
+    <select id="isRoleIdInJson" resultType="boolean">
+        SELECT JSON_CONTAINS(role_ids, JSON_QUOTE(#{roleId}))
+        FROM users 
+        WHERE id = #{userId}
+    </select>
+    
+    <!-- 核心方法2: 查询包含指定角色ID的所有用户 -->
+    <select id="selectUsersByRoleId" parameterType="long" resultMap="UserResultMap">
+        SELECT 
+        <include refid="Base_Column_List"/>
+        FROM users 
+        WHERE JSON_CONTAINS(role_ids, JSON_QUOTE(#{roleId}))
+    </select>
+    
+    <!-- 核心方法3: 查询roleIds JSON字段中包含任意指定ID的用户 -->
+    <select id="selectUsersByAnyRoleId" resultMap="UserResultMap">
+        SELECT 
+        <include refid="Base_Column_List"/>
+        FROM users 
+        WHERE JSON_OVERLAPS(role_ids, JSON_ARRAY(
+        <foreach collection="roleIds" item="roleId" separator=",">
+            #{roleId}
+        </foreach>
+        ))
+    </select>
+    
+    <!-- 核心方法4: 查询roleIds JSON字段中包含所有指定ID的用户 -->
+    <select id="selectUsersByAllRoleIds" resultMap="UserResultMap">
+        SELECT 
+        <include refid="Base_Column_List"/>
+        FROM users 
+        WHERE 
+        <foreach collection="roleIds" item="roleId" separator=" AND ">
+            JSON_CONTAINS(role_ids, JSON_QUOTE(#{roleId}))
+        </foreach>
+    </select>
+    
+    <!-- 核心方法5: 统计包含指定角色ID的用户数量 -->
+    <select id="countUsersByRoleId" parameterType="long" resultType="int">
+        SELECT COUNT(*)
+        FROM users 
+        WHERE JSON_CONTAINS(role_ids, JSON_QUOTE(#{roleId}))
+    </select>
+    
+    <!-- 额外方法: 使用JSON_EXTRACT和FIND_IN_SET的替代方案 -->
+    <select id="selectUsersByRoleIdAlternative" parameterType="long" resultMap="UserResultMap">
+        SELECT 
+        <include refid="Base_Column_List"/>
+        FROM users 
+        WHERE FIND_IN_SET(#{roleId}, 
+            REPLACE(REPLACE(JSON_EXTRACT(role_ids, '$'), '[', ''), ']', '')
+        ) > 0
+    </select>
+    
+    <!-- 额外方法: 使用JSON_SEARCH函数 -->
+    <select id="selectUsersByRoleIdWithSearch" parameterType="long" resultMap="UserResultMap">
+        SELECT 
+        <include refid="Base_Column_List"/>
+        FROM users 
+        WHERE JSON_SEARCH(role_ids, 'one', #{roleId}) IS NOT NULL
+    </select>
+    
+</mapper>
