@@ -1,0 +1,16 @@
+2025-09-18 02:04:33,316 - __main__ - INFO - ==================================================
+2025-09-18 02:04:33,317 - __main__ - INFO - 直播间管理系统启动
+2025-09-18 02:04:33,317 - __main__ - INFO - 启动时间: 2025-09-18 02:04:33.317224
+2025-09-18 02:04:33,317 - __main__ - INFO - 服务器地址: 0.0.0.0:5001
+2025-09-18 02:04:33,317 - __main__ - INFO - 调试模式: False
+2025-09-18 02:04:33,317 - __main__ - INFO - ==================================================
+2025-09-18 02:04:33,317 - __main__ - INFO - 初始化数据库...
+2025-09-18 02:04:33,324 - __main__ - INFO - 数据库初始化完成
+2025-09-18 02:04:33,324 - __main__ - INFO - 启动定时任务...
+2025-09-18 02:04:33,325 - __main__ - INFO - 启动Web服务器...
+2025-09-18 02:04:33,329 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://172.30.0.2:5001
+2025-09-18 02:04:33,329 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-18 02:04:36,962 - werkzeug - INFO - 127.0.0.1 - - [18/Sep/2025 02:04:36] "GET /api/rooms HTTP/1.1" 200 -
