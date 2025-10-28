@@ -7,3 +7,5 @@ tensorflow-gpu==2.13.0
 mediapipe==0.10.7
 pillow==10.0.1
 matplotlib==3.7.2
+requests>=2.25.1
+configparser>=5.0.0
