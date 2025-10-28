@@ -1,0 +1,122 @@
+# 短链接服务配置文件
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  tomcat:
+    max-threads: 200
+    max-connections: 10000
+
+spring:
+  application:
+    name: short-url-service
+  
+  # 数据源配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/shorturl?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+  
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+  
+  # Redis配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 3000ms
+  
+  # Jackson配置
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+# 日志配置
+logging:
+  level:
+    com.shorturl: INFO
+    org.springframework.cache: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/shorturl-service.log
+
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# 短链接服务配置
+shorturl:
+  # 短码配置
+  short-code:
+    min-length: 4
+    max-length: 8
+    batch-size: 1000
+  
+  # 缓存配置
+  cache:
+    local:
+      max-size: 10000
+      ttl: 60s
+    redis:
+      ttl: 3600s
+    access-stats:
+      ttl: 300s
+  
+  # 安全配置
+  security:
+    max-requests-per-minute: 100
+    blocked-domains:
+      - localhost
+      - 127.0.0.1
+      - 0.0.0.0
+  
+  # 统计配置
+  stats:
+    batch-sync-interval: 100
+    log-retention-days: 30

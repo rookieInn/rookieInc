@@ -1,23 +1,112 @@
 version: '3.8'
 
 services:
-  wechat-chatgpt-bot:
-    build: .
-    container_name: wechat-chatgpt-bot
-    restart: unless-stopped
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    container_name: shorturl-mysql
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - WECHAT_AUTO_REPLY=true
-      - WECHAT_REPLY_GROUPS=true
-      - WECHAT_REPLY_PRIVATE=true
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: shorturl
+      MYSQL_USER: shorturl
+      MYSQL_PASSWORD: shorturl
+    ports:
+      - "3306:3306"
     volumes:
-      - ./bot_config.ini:/app/bot_config.ini
-      - ./bot_config_advanced.ini:/app/bot_config_advanced.ini
-      - ./logs:/app/logs
-      - ./data:/app/data
+      - mysql_data:/var/lib/mysql
+      - ./src/main/resources/db/migration:/docker-entrypoint-initdb.d
+    command: --default-authentication-plugin=mysql_native_password
     networks:
-      - wechat-bot-network
+      - shorturl-network
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: shorturl-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - shorturl-network
+
+  # 短链接服务
+  shorturl-service:
+    build: .
+    container_name: shorturl-service
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/shorturl?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: shorturl
+      SPRING_DATASOURCE_PASSWORD: shorturl
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - shorturl-network
+    restart: unless-stopped
+
+  # Nginx反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: shorturl-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - shorturl-service
+    networks:
+      - shorturl-network
+    restart: unless-stopped
+
+  # Prometheus监控
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: shorturl-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - shorturl-network
+    restart: unless-stopped
+
+  # Grafana可视化
+  grafana:
+    image: grafana/grafana:latest
+    container_name: shorturl-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - shorturl-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
-  wechat-bot-network:
+  shorturl-network:
     driver: bridge
