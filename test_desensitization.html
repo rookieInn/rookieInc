@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>脱敏工具测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-item { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>脱敏工具测试</h1>
+    <div id="test-results"></div>
+
+    <script src="desensitization-utils.js"></script>
+    <script>
+        function runTests() {
+            const results = document.getElementById('test-results');
+            const tests = [
+                // 手机号测试
+                { input: '13812345678', expected: '138****5678', type: 'phone' },
+                { input: '+86-138-1234-5678', expected: '+86-138-****-5678', type: 'phone' },
+                { input: '159-8765-4321', expected: '159-****-4321', type: 'phone' },
+                
+                // 身份证号测试
+                { input: '110101199001011234', expected: '11010119900101****', type: 'id' },
+                { input: '320102199512123456', expected: '32010219951212****', type: 'id' },
+                { input: '11010119900101123X', expected: '11010119900101****', type: 'id' },
+                
+                // 无效数据测试
+                { input: '123456', expected: null, type: null },
+                { input: '', expected: null, type: null }
+            ];
+
+            let passCount = 0;
+            let totalCount = tests.length;
+
+            tests.forEach((test, index) => {
+                const result = desensitizeData(test.input);
+                const passed = result && result.desensitized === test.expected;
+                
+                if (passed) passCount++;
+
+                const testDiv = document.createElement('div');
+                testDiv.className = `test-item ${passed ? 'pass' : 'fail'}`;
+                testDiv.innerHTML = `
+                    <strong>测试 ${index + 1}:</strong> ${test.input}<br>
+                    <strong>期望:</strong> ${test.expected}<br>
+                    <strong>实际:</strong> ${result ? result.desensitized : 'null'}<br>
+                    <strong>结果:</strong> ${passed ? '✅ 通过' : '❌ 失败'}
+                `;
+                results.appendChild(testDiv);
+            });
+
+            const summary = document.createElement('div');
+            summary.innerHTML = `
+                <h2>测试总结</h2>
+                <p>总测试数: ${totalCount}</p>
+                <p>通过数: ${passCount}</p>
+                <p>失败数: ${totalCount - passCount}</p>
+                <p>通过率: ${Math.round((passCount / totalCount) * 100)}%</p>
+            `;
+            results.appendChild(summary);
+        }
+
+        // 页面加载完成后运行测试
+        document.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+</html>
