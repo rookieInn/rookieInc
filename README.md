@@ -1,24 +1,23 @@
-# 人脸识别和活体检测系统
+# 天气爬取和分析系统
 
-这是一个基于Python和GPU的人脸识别和活体检测系统，支持张嘴检测和眨眼检测。
+一个智能的天气爬取系统，可以获取城市未来几天的天气状况，并帮助用户找到下雨城市附近最近的晴天城市。
 
-## 功能特性
+## 功能特点
 
-- ✅ **人脸检测**: 使用MediaPipe和dlib双重检测
-- ✅ **眨眼检测**: 基于眼睛纵横比(EAR)的实时眨眼检测
-- ✅ **张嘴检测**: 基于嘴部纵横比(MAR)的实时张嘴检测
-- ✅ **GPU加速**: 支持TensorFlow GPU加速
-- ✅ **实时处理**: 支持摄像头实时检测
-- ✅ **多模型支持**: MediaPipe + dlib双重保障
+- 🌤️ **天气数据获取**: 支持获取城市未来7天的详细天气信息
+- 🗺️ **地理位置计算**: 精确计算城市间距离，使用Haversine公式
+- 🔍 **智能推荐**: 自动为下雨城市推荐最近的晴天城市
+- 📊 **批量分析**: 支持同时分析多个城市的天气模式
+- 🎯 **灵活配置**: 可设置最大搜索距离和查询天数
 
-## 技术栈
+## 支持的城市
 
-- **OpenCV**: 图像处理和摄像头操作
-- **MediaPipe**: Google的人脸检测和关键点提取
-- **dlib**: 传统计算机视觉库，作为备用检测器
-- **TensorFlow**: GPU加速支持
-- **NumPy**: 数值计算
-- **SciPy**: 距离计算
+系统内置了50+个中国主要城市的坐标数据，包括：
+
+**一线城市**: 北京、上海、广州、深圳
+**省会城市**: 杭州、南京、成都、重庆、武汉、西安等
+**重要城市**: 苏州、青岛、大连、厦门、福州等
+**更多城市**: 无锡、宁波、温州、嘉兴等长三角城市
 
 ## 安装依赖
 
@@ -28,108 +27,153 @@ pip install -r requirements.txt
 
 ## 使用方法
 
-### 1. 实时摄像头检测
-
-```bash
-python face_liveness_detection.py
-```
-
-### 2. 运行测试
-
-```bash
-python test_liveness_detection.py
-```
-
-### 3. 在代码中使用
+### 1. 基础使用
 
 ```python
-from face_liveness_detection import FaceLivenessDetector
+from weather_scraper import WeatherScraper
 
-# 创建检测器
-detector = FaceLivenessDetector(use_gpu=True)
+# 创建爬取器实例
+scraper = WeatherScraper()
 
-# 检测单张图像
-import cv2
-image = cv2.imread("your_image.jpg")
-results = detector.detect_liveness(image)
+# 查找北京明天最近的晴天城市
+tomorrow = "2024-01-15"  # 替换为实际日期
+result = scraper.find_nearest_sunny_city('北京', tomorrow)
 
-print(f"人脸检测: {results['face_detected']}")
-print(f"眨眼检测: {results['blink_detected']}")
-print(f"张嘴检测: {results['mouth_open_detected']}")
+if result:
+    city, distance, weather_info = result
+    print(f"推荐城市: {city}")
+    print(f"距离: {distance:.2f} 公里")
+    print(f"天气: {weather_info.weather}")
 ```
 
-## 检测原理
-
-### 眨眼检测 (EAR - Eye Aspect Ratio)
-
-眨眼检测基于眼睛纵横比(EAR)算法：
-
-```
-EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
-```
-
-其中p1-p6是眼睛关键点的坐标。当EAR低于阈值时，表示眼睛闭合。
-
-### 张嘴检测 (MAR - Mouth Aspect Ratio)
-
-张嘴检测基于嘴部纵横比(MAR)算法：
-
-```
-MAR = (|p2-p10| + |p4-p8|) / (2 * |p1-p7|)
-```
-
-其中p1-p10是嘴部关键点的坐标。当MAR高于阈值时，表示嘴巴张开。
-
-## 参数调优
-
-可以在`FaceLivenessDetector`类中调整以下参数：
+### 2. 高级使用
 
 ```python
-# 眨眼检测参数
-self.EAR_THRESHOLD = 0.25  # 眼睛纵横比阈值
-self.EAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
+from advanced_weather_scraper import AdvancedWeatherScraper
 
-# 张嘴检测参数
-self.MAR_THRESHOLD = 0.5  # 嘴部纵横比阈值
-self.MAR_CONSECUTIVE_FRAMES = 3  # 连续帧数
+# 创建高级爬取器实例
+scraper = AdvancedWeatherScraper()
+
+# 分析多个城市的天气模式
+cities = ['北京', '上海', '广州', '深圳']
+results = scraper.get_weather_recommendations(cities, 7)
+scraper.print_recommendations(results)
 ```
 
-## 性能优化
+### 3. 交互式演示
 
-1. **GPU加速**: 系统自动检测并使用GPU加速
-2. **多模型支持**: MediaPipe作为主要检测器，dlib作为备用
-3. **实时处理**: 优化的算法确保实时性能
+```bash
+python weather_demo.py
+```
 
-## 系统要求
+## 核心功能
 
-- Python 3.7+
-- OpenCV 4.x
-- CUDA支持的GPU (可选)
-- 摄像头设备
+### 天气数据获取
+
+系统支持两种数据获取方式：
+
+1. **模拟数据**: 基于地理位置和季节生成合理的模拟天气数据
+2. **真实API**: 集成OpenWeatherMap API获取实时天气数据（需要API key）
+
+### 距离计算
+
+使用Haversine公式精确计算地球表面两点间的距离：
+
+```python
+def calculate_distance(lat1, lon1, lat2, lon2):
+    # 返回距离（公里）
+```
+
+### 天气判断
+
+系统能智能识别不同类型的天气：
+
+- **雨天**: 包含"雨"、"雷"、"雪"等关键词
+- **晴天**: 包含"晴"、"多云"等关键词
+
+### 推荐算法
+
+1. 获取目标城市指定日期的天气数据
+2. 判断是否为雨天
+3. 遍历所有其他城市
+4. 计算距离并筛选晴天城市
+5. 返回距离最近的晴天城市
+
+## 配置选项
+
+### 环境变量
+
+```bash
+# 设置OpenWeatherMap API key（可选）
+export OPENWEATHER_API_KEY="your_api_key_here"
+```
+
+### 参数配置
+
+- `max_distance`: 最大搜索距离（默认500公里）
+- `days`: 查询天数（默认7天）
+- `cities`: 要分析的城市列表
+
+## 示例输出
+
+```
+=== 天气推荐结果 ===
+分析期间: 2024-01-15 到 2024-01-17
+
+找到 2 个推荐:
+------------------------------------------------------------
+1. 2024-01-15
+   下雨城市: 北京
+   推荐城市: 天津
+   距离: 120.45 公里
+   天气: 晴天
+   温度: 18.5°C
+   湿度: 65%
+   风速: 3.2 m/s
+
+2. 2024-01-16
+   下雨城市: 上海
+   推荐城市: 杭州
+   距离: 164.32 公里
+   天气: 多云
+   温度: 22.1°C
+   湿度: 58%
+   风速: 2.8 m/s
+```
+
+## 扩展功能
+
+### 添加新城市
+
+在 `city_coordinates` 字典中添加新城市：
+
+```python
+self.city_coordinates['新城市'] = (纬度, 经度)
+```
+
+### 自定义天气判断
+
+重写 `_is_rainy_weather` 和 `_is_sunny_weather` 方法：
+
+```python
+def _is_rainy_weather(self, weather: str) -> bool:
+    # 自定义雨天判断逻辑
+    return "自定义关键词" in weather
+```
 
 ## 注意事项
 
-1. 首次运行会自动下载dlib预训练模型
-2. 确保摄像头权限已开启
-3. 在光线充足的环境下效果更佳
-4. 建议人脸距离摄像头30-60cm
+1. **API限制**: 使用真实API时请注意调用频率限制
+2. **数据准确性**: 模拟数据仅供参考，实际使用建议配置真实API
+3. **网络连接**: 需要稳定的网络连接获取天气数据
+4. **城市支持**: 目前主要支持中国城市，可扩展支持其他国家
 
-## 故障排除
+## 技术实现
 
-### 常见问题
-
-1. **GPU不可用**: 系统会自动回退到CPU模式
-2. **摄像头无法打开**: 检查摄像头权限和设备连接
-3. **检测精度低**: 调整阈值参数或改善光线条件
-
-### 调试模式
-
-在代码中设置调试模式：
-
-```python
-detector = FaceLivenessDetector(use_gpu=True)
-# 启用详细日志输出
-```
+- **语言**: Python 3.7+
+- **依赖**: requests, math, datetime
+- **算法**: Haversine距离计算
+- **数据源**: OpenWeatherMap API / 模拟数据
 
 ## 许可证
 
@@ -137,4 +181,8 @@ MIT License
 
 ## 贡献
 
-欢迎提交Issue和Pull Request来改进这个项目。
+欢迎提交Issue和Pull Request来改进这个项目！
+
+## 联系方式
+
+如有问题或建议，请通过GitHub Issues联系。
