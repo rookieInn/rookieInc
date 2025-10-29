@@ -58,7 +58,7 @@ def get_client_info() -> Dict[str, Any]:
     """获取客户端信息"""
     return {
         'user_agent': request.headers.get('User-Agent', ''),
-        'ip_address': request.remote_addr,
+        'ip_address': request.headers.get('X-Forwarded-For', request.remote_addr),
         'referrer': request.headers.get('Referer', ''),
         'accept_language': request.headers.get('Accept-Language', ''),
         'accept_encoding': request.headers.get('Accept-Encoding', '')
@@ -89,6 +89,7 @@ def track_event():
             event_type=data.get('event_type', 'custom'),
             page_url=data.get('page_url', ''),
             page_title=data.get('page_title', ''),
+            ip_address=client_info['ip_address'],
             element_id=data.get('element_id'),
             element_class=data.get('element_class'),
             element_text=data.get('element_text'),
@@ -151,6 +152,7 @@ def track_pageview():
             session_id=data.get('session_id', generate_session_id()),
             page_url=data.get('page_url', ''),
             page_title=data.get('page_title', ''),
+            ip_address=client_info['ip_address'],
             referrer=data.get('referrer', client_info['referrer']),
             user_agent=client_info['user_agent'],
             screen_resolution=data.get('screen_resolution'),
@@ -215,6 +217,7 @@ def track_batch():
                     event_type=event_data.get('event_type', 'custom'),
                     page_url=event_data.get('page_url', ''),
                     page_title=event_data.get('page_title', ''),
+                    ip_address=client_info['ip_address'],
                     element_id=event_data.get('element_id'),
                     element_class=event_data.get('element_class'),
                     element_text=event_data.get('element_text'),
