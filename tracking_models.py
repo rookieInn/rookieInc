@@ -28,6 +28,7 @@ class UserEvent:
     event_type: str  # page_view, click, scroll, form_submit, custom等
     page_url: str
     page_title: str
+    ip_address: Optional[str]  # 客户端IP地址
     element_id: Optional[str]  # 被点击的元素ID
     element_class: Optional[str]  # 被点击的元素class
     element_text: Optional[str]  # 被点击的元素文本
@@ -57,6 +58,7 @@ class PageView:
     session_id: str
     page_url: str
     page_title: str
+    ip_address: Optional[str]
     referrer: Optional[str]
     user_agent: str
     screen_resolution: Optional[str]
@@ -126,12 +128,14 @@ class TrackingDatabase:
             self.events_collection.create_index([("session_id", ASCENDING), ("timestamp", DESCENDING)])
             self.events_collection.create_index([("event_type", ASCENDING), ("timestamp", DESCENDING)])
             self.events_collection.create_index([("page_url", ASCENDING), ("timestamp", DESCENDING)])
+            self.events_collection.create_index([("ip_address", ASCENDING), ("timestamp", DESCENDING)])
             self.events_collection.create_index("timestamp")
             
             # 页面访问索引
             self.pageviews_collection.create_index([("user_id", ASCENDING), ("timestamp", DESCENDING)])
             self.pageviews_collection.create_index([("session_id", ASCENDING), ("timestamp", DESCENDING)])
             self.pageviews_collection.create_index([("page_url", ASCENDING), ("timestamp", DESCENDING)])
+            self.pageviews_collection.create_index([("ip_address", ASCENDING), ("timestamp", DESCENDING)])
             self.pageviews_collection.create_index("timestamp")
             
             # 会话索引

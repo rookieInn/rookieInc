@@ -521,6 +521,155 @@ class TrackingAnalytics:
                 'error': str(e)
             }
 
+    def detect_abusive_users(
+        self,
+        days: int = 1,
+        per_minute_threshold: int = 120,
+        daily_event_threshold: int = 5000,
+        form_submit_threshold: int = 300,
+        identical_event_ratio_threshold: float = 0.9
+    ) -> Dict[str, Any]:
+        """
+        识别疑似异常/攻击用户（对输入框或接口进行循环调用）
+
+        判定维度：
+        - 每分钟事件数过高（按 user_id / ip_address 分组）
+        - 单日总事件数异常高
+        - form_submit 类型事件异常高
+        - 同质化事件比例过高（同一 page_url + element_id + event_type 占比）
+
+        Returns:
+            Dict[str, Any]: { 'period': {...}, 'abusers': [...], 'stats': {...} }
+        """
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+
+        candidates: List[Dict[str, Any]] = []
+        try:
+            # 取出近期的事件（限制字段以减小内存）
+            cursor = self.db.events_collection.find(
+                {"timestamp": {"$gte": start_date, "$lte": end_date}},
+                {
+                    "user_id": 1,
+                    "session_id": 1,
+                    "event_type": 1,
+                    "page_url": 1,
+                    "element_id": 1,
+                    "ip_address": 1,
+                    "timestamp": 1,
+                    "user_agent": 1,
+                }
+            )
+
+            events: List[Dict[str, Any]] = list(cursor)
+            if not events:
+                return {
+                    'period': {'start_date': start_date.isoformat(), 'end_date': end_date.isoformat(), 'days': days},
+                    'abusers': [],
+                    'stats': {'total_events': 0}
+                }
+
+            # 1) 每分钟速率检测（按 user_id 和 ip_address）
+            from collections import defaultdict
+            per_minute_counts_user: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+            per_minute_counts_ip: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+
+            # 2) 总量、表单提交、同质事件统计
+            key_counts_user: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+            key_counts_ip: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+            totals_user: Dict[str, int] = defaultdict(int)
+            totals_ip: Dict[str, int] = defaultdict(int)
+            form_submits_user: Dict[str, int] = defaultdict(int)
+            form_submits_ip: Dict[str, int] = defaultdict(int)
+
+            for ev in events:
+                ts = ev.get('timestamp')
+                minute_key = ts.strftime('%Y-%m-%d %H:%M') if isinstance(ts, datetime) else str(ts)[:16]
+                user_id = ev.get('user_id') or 'anonymous'
+                ip = ev.get('ip_address') or 'unknown'
+                event_type = ev.get('event_type') or 'unknown'
+                page_url = ev.get('page_url') or ''
+                element_id = ev.get('element_id') or ''
+
+                signature = f"{event_type}|{page_url}|{element_id}"
+
+                # 每分钟速率
+                per_minute_counts_user[user_id][minute_key] += 1
+                per_minute_counts_ip[ip][minute_key] += 1
+
+                # 总量与类别
+                totals_user[user_id] += 1
+                totals_ip[ip] += 1
+                key_counts_user[user_id][signature] += 1
+                key_counts_ip[ip][signature] += 1
+                if event_type == 'form_submit':
+                    form_submits_user[user_id] += 1
+                    form_submits_ip[ip] += 1
+
+            def analyze(entity_id: str, per_minute: Dict[str, int], totals: int, form_submits: int, key_counts: Dict[str, int], id_type: str) -> Optional[Dict[str, Any]]:
+                if totals == 0:
+                    return None
+                peak = max(per_minute.values()) if per_minute else 0
+                dominant = max(key_counts.values()) if key_counts else 0
+                identical_ratio = (dominant / totals) if totals > 0 else 0
+                triggers = []
+                if peak >= per_minute_threshold:
+                    triggers.append(f"peak_per_minute>={per_minute_threshold}")
+                if totals >= daily_event_threshold:
+                    triggers.append(f"daily_events>={daily_event_threshold}")
+                if form_submits >= form_submit_threshold:
+                    triggers.append(f"form_submit>={form_submit_threshold}")
+                if identical_ratio >= identical_event_ratio_threshold and totals >= 50:
+                    triggers.append(f"identical_ratio>={identical_event_ratio_threshold}")
+                if not triggers:
+                    return None
+                return {
+                    id_type: entity_id,
+                    'peak_per_minute': peak,
+                    'daily_events': totals,
+                    'form_submits': form_submits,
+                    'identical_event_ratio': round(identical_ratio, 3),
+                    'top_signature': max(key_counts, key=key_counts.get) if key_counts else '',
+                    'triggers': triggers,
+                }
+
+            # 汇总嫌疑 user_id
+            abusers: List[Dict[str, Any]] = []
+            for uid, minutes in per_minute_counts_user.items():
+                candidate = analyze(uid, minutes, totals_user[uid], form_submits_user[uid], key_counts_user[uid], 'user_id')
+                if candidate:
+                    abusers.append(candidate)
+
+            # 汇总嫌疑 ip
+            for ip, minutes in per_minute_counts_ip.items():
+                candidate = analyze(ip, minutes, totals_ip[ip], form_submits_ip[ip], key_counts_ip[ip], 'ip_address')
+                if candidate:
+                    abusers.append(candidate)
+
+            # 去重：如果同一主体既以 user_id 又以 ip 呈现，按更强触发排序
+            abusers.sort(key=lambda x: (-(x['peak_per_minute']), -(x['daily_events'])))
+
+            return {
+                'period': {
+                    'start_date': start_date.isoformat(),
+                    'end_date': end_date.isoformat(),
+                    'days': days
+                },
+                'stats': {
+                    'total_events': len(events),
+                    'unique_users': len(totals_user),
+                    'unique_ips': len(totals_ip)
+                },
+                'abusers': abusers[:200]
+            }
+        except Exception as e:
+            logger.error(f"❌ 异常用户识别失败: {e}")
+            return {
+                'period': {'start_date': start_date.isoformat(), 'end_date': end_date.isoformat(), 'days': days},
+                'abusers': [],
+                'error': str(e)
+            }
+
 def main():
     """主函数 - 演示分析功能"""
     try:
