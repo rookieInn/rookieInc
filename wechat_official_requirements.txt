@@ -1,0 +1,24 @@
+# 微信公众号菜单管理系统依赖
+
+# Web框架
+Flask==2.3.0
+Werkzeug==2.3.0
+
+# HTTP请求
+requests==2.31.0
+
+# XML处理（Python内置，无需安装）
+# xml.etree.ElementTree
+
+# 配置文件处理（Python内置，无需安装）
+# configparser
+
+# 日志（Python内置，无需安装）
+# logging
+
+# 可选：生产环境WSGI服务器
+gunicorn==21.2.0
+gevent==23.9.1
+
+# 可选：HTTPS支持
+pyOpenSSL==23.2.0
