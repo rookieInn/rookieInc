@@ -1,0 +1,270 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║          微信公众号自定义菜单管理系统 - 使用说明                    ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+✨ 系统已创建完成！包含以下功能：
+
+【核心功能】
+✅ 创建多级菜单（3个一级菜单，每个最多5个子菜单）
+✅ 点击菜单返回图片
+✅ 点击菜单返回视频  
+✅ 点击菜单返回音频
+✅ 点击菜单返回图文消息
+✅ 自动管理access_token
+✅ 完整的消息响应服务器
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📁 文件说明
+
+核心模块：
+  wechat_official_menu.py       - 菜单管理核心模块（创建/查询/删除菜单）
+  wechat_official_server.py     - 消息响应服务器（处理用户点击事件）
+  wechat_official_example.py    - 6个完整使用示例
+  test_wechat_official.py       - 单元测试脚本
+  demo_wechat_official.py       - 功能演示脚本
+
+配置文件：
+  wechat_official_account_config.ini  - 公众号配置（需填写）
+  wechat_official_requirements.txt    - Python依赖列表
+  start_wechat_official.sh            - 一键启动脚本
+
+文档：
+  README_微信公众号菜单.md            - 完整使用文档（推荐阅读）
+  快速开始_微信公众号菜单.md           - 5分钟快速入门
+  WECHAT_OFFICIAL_SUMMARY.md           - 项目总结和架构
+
+媒体目录：
+  media/images/    - 存放图片文件
+  media/videos/    - 存放视频文件
+  media/audios/    - 存放音频文件
+  media/README.md  - 媒体文件使用说明
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 快速开始（3步即可运行）
+
+【第1步】安装依赖
+  pip install flask requests
+
+  或使用国内镜像加速：
+  pip install flask requests -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+【第2步】配置公众号信息
+  编辑文件：wechat_official_account_config.ini
+  
+  填写以下信息：
+  [WECHAT_OFFICIAL]
+  appid = 你的公众号AppID
+  appsecret = 你的公众号AppSecret
+  token = 自定义Token（建议使用随机字符串）
+
+  获取方式：
+  • 正式公众号：https://mp.weixin.qq.com/ → 开发 → 基本配置
+  • 测试公众号：https://mp.weixin.qq.com/debug/cgi-bin/sandbox (推荐)
+
+【第3步】创建菜单并启动
+  # 方式1：使用启动脚本（推荐）
+  ./start_wechat_official.sh
+  然后选择对应的功能
+
+  # 方式2：手动执行
+  python3 wechat_official_menu.py      # 创建菜单
+  python3 wechat_official_server.py    # 启动服务器
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 详细教程
+
+【1】创建简单菜单
+  python3 -c "
+  from wechat_official_menu import WeChatOfficialMenuManager
+  manager = WeChatOfficialMenuManager()
+  menu = {
+      'button': [
+          {'type': 'click', 'name': '点我', 'key': 'CLICK_ME'}
+      ]
+  }
+  manager.create_menu(menu)
+  "
+
+【2】创建多级菜单
+  查看文件：wechat_official_example.py
+  运行：python3 wechat_official_example.py
+  选择示例2
+
+【3】上传媒体文件
+  # 准备文件
+  将图片放到：media/images/my_image.jpg
+  
+  # 上传获取media_id
+  python3 -c "
+  from wechat_official_menu import WeChatOfficialMenuManager
+  m = WeChatOfficialMenuManager()
+  media_id = m.upload_media('./media/images/my_image.jpg', 'image')
+  print(f'Media ID: {media_id}')
+  "
+
+【4】配置菜单响应
+  编辑文件：wechat_official_server.py
+  找到函数：handle_menu_click
+  添加你的处理逻辑
+
+【5】查看现有菜单
+  python3 -c "
+  from wechat_official_menu import WeChatOfficialMenuManager
+  m = WeChatOfficialMenuManager()
+  menu = m.get_menu()
+  import json
+  print(json.dumps(menu, ensure_ascii=False, indent=2))
+  "
+
+【6】删除菜单
+  python3 -c "
+  from wechat_official_menu import WeChatOfficialMenuManager
+  m = WeChatOfficialMenuManager()
+  m.delete_menu()
+  "
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 完整示例
+
+【示例：创建带图片/视频/音频的菜单】
+
+from wechat_official_menu import WeChatOfficialMenuManager
+
+manager = WeChatOfficialMenuManager()
+
+# 定义菜单结构
+menu = {
+    "button": [
+        {
+            "name": "📱 多媒体",
+            "sub_button": [
+                {"type": "click", "name": "📸 查看图片", "key": "SHOW_IMAGE"},
+                {"type": "click", "name": "🎬 观看视频", "key": "SHOW_VIDEO"},
+                {"type": "click", "name": "🎵 听音频", "key": "SHOW_AUDIO"}
+            ]
+        },
+        {
+            "name": "ℹ️ 服务",
+            "sub_button": [
+                {"type": "click", "name": "关于我们", "key": "ABOUT"},
+                {"type": "view", "name": "官方网站", "url": "https://www.example.com"}
+            ]
+        },
+        {
+            "type": "click",
+            "name": "❓ 帮助",
+            "key": "HELP"
+        }
+    ]
+}
+
+# 创建菜单
+if manager.create_menu(menu):
+    print("✅ 菜单创建成功！")
+    print("💡 请在微信公众号中查看")
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 配置微信公众平台
+
+【1】登录微信公众平台
+  https://mp.weixin.qq.com/
+
+【2】进入开发设置
+  左侧菜单 → 开发 → 基本配置
+
+【3】配置服务器
+  服务器地址(URL)：http://你的域名:8080/wechat
+  令牌(Token)：与配置文件中的token一致
+  消息加解密方式：明文模式（或安全模式）
+  
+  点击"提交"验证
+
+【4】测试菜单
+  取消关注后重新关注公众号
+  或等待最多24小时生效
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️ 常见问题
+
+Q1: 菜单不显示？
+A: 取消关注后重新关注，或等待24小时生效
+
+Q2: 点击菜单没反应？
+A: 检查服务器是否运行，查看日志文件
+
+Q3: 上传素材失败？
+A: 检查文件大小和格式是否符合要求
+   图片≤2MB，视频≤10MB，音频≤2MB
+
+Q4: access_token获取失败？
+A: 检查AppID和AppSecret是否正确
+
+Q5: 服务器验证失败？
+A: 确认Token配置一致，检查服务器日志
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 使用建议
+
+1. 开发阶段使用测试公众号（免费、方便）
+2. 媒体文件提前准备好，注意格式和大小
+3. 定期查看日志文件了解运行状态
+4. 服务器需要公网IP或使用内网穿透
+5. 备份配置文件和重要数据
+6. 生产环境使用Gunicorn等WSGI服务器
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 学习资源
+
+【查看演示】
+  python3 demo_wechat_official.py
+  
+【运行示例】
+  python3 wechat_official_example.py
+  
+【运行测试】
+  python3 test_wechat_official.py
+  
+【阅读文档】
+  README_微信公众号菜单.md              - 完整文档
+  快速开始_微信公众号菜单.md             - 快速入门
+  WECHAT_OFFICIAL_SUMMARY.md              - 项目总结
+  
+【官方文档】
+  https://developers.weixin.qq.com/doc/offiaccount/
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 项目特色
+
+✨ 开箱即用 - 配置即可使用
+🔒 安全可靠 - 签名验证、Token管理
+📝 文档完善 - 多份详细文档和示例
+🧪 测试完整 - 单元测试覆盖主要功能
+🚀 易于扩展 - 模块化设计
+💻 生产就绪 - 支持多种部署方案
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📞 技术支持
+
+遇到问题：
+1. 查看日志文件（wechat_official_menu.log、wechat_official_server.log）
+2. 阅读完整文档（README_微信公众号菜单.md）
+3. 运行测试脚本（test_wechat_official.py）
+4. 查看微信公众平台开发文档
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎊 开始创建您的微信公众号菜单吧！
+
+祝您使用愉快！ 🎉
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
