@@ -1,0 +1,22 @@
+{
+  "corp_id": "wwxxxxxxxxxxxxxxxx",
+  "corp_secret": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "user_ids": [
+    "zhangsan",
+    "lisi"
+  ],
+  "party_ids": [],
+  "timezone": "Asia/Shanghai",
+  "storage": {
+    "file_path": "data/friend_stats.json"
+  },
+  "request": {
+    "base_url": "https://qyapi.weixin.qq.com",
+    "timeout": 10,
+    "retries": 1
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "friend_tracker.log"
+  }
+}
