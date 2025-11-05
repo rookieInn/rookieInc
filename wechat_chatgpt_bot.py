@@ -37,7 +37,8 @@ class WeChatChatGPTBot:
         self.config = self._load_config(config_file)
         self.openai_client = None
         self.chat_history = {}  # 存储聊天历史
-        self.max_history = 10   # 最大历史记录数
+        self.max_history = self.config.getint('BOT', 'max_history_pairs', fallback=10)  # 最大问答对数限制
+        self.max_history_chars = self.config.getint('BOT', 'max_history_chars', fallback=4000)  # 上下文字符限制
         self._setup_openai()
         
     def _load_config(self, config_file: str) -> ConfigParser:
@@ -69,7 +70,9 @@ class WeChatChatGPTBot:
         config['BOT'] = {
             'name': 'ChatGPT助手',
             'welcome_message': '你好！我是ChatGPT助手，有什么可以帮助你的吗？',
-            'error_message': '抱歉，我现在无法回复，请稍后再试。'
+            'error_message': '抱歉，我现在无法回复，请稍后再试。',
+            'max_history_pairs': '10',
+            'max_history_chars': '4000'
         }
         
         with open(config_file, 'w', encoding='utf-8') as f:
@@ -86,30 +89,68 @@ class WeChatChatGPTBot:
         else:
             logger.warning("OpenAI API密钥未配置，请检查配置文件")
     
+    def _limit_history(self, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """根据数量与字符限制裁剪聊天历史"""
+        if not history:
+            return []
+
+        limited = history[-(self.max_history * 2):] if self.max_history else list(history)
+
+        if self.max_history_chars <= 0:
+            return list(limited)
+
+        return self._trim_history_by_chars(limited)
+
+    def _trim_history_by_chars(self, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """按字符数限制裁剪聊天历史，超出时移除最早问答对"""
+        if not history:
+            return []
+
+        trimmed = list(history)
+        encoded_length = len(json.dumps(trimmed, ensure_ascii=False))
+        if encoded_length <= self.max_history_chars:
+            return trimmed
+
+        while len(trimmed) > 1:
+            trimmed = trimmed[2:] if len(trimmed) >= 2 else trimmed[1:]
+            encoded_length = len(json.dumps(trimmed, ensure_ascii=False))
+            if encoded_length <= self.max_history_chars:
+                return trimmed
+
+        return trimmed
+
     async def _call_chatgpt(self, message: str, user_id: str) -> str:
         """调用ChatGPT-4 API"""
         if not self.openai_client:
             return self.config.get('BOT', 'error_message')
         
         try:
-            # 获取用户聊天历史
-            history = self.chat_history.get(user_id, [])
-            
+            # 获取用户聊天历史并裁剪
+            history = self.chat_history.get(user_id, []).copy()
+            history = self._limit_history(history)
+
             # 构建消息列表
             messages = []
-            
+
             # 添加系统提示
             messages.append({
-                "role": "system", 
+                "role": "system",
                 "content": f"你是{self.config.get('BOT', 'name')}，一个友好的AI助手。请用中文回复用户的问题。"
             })
-            
-            # 添加历史对话
-            for msg in history[-self.max_history:]:
+
+            # 根据限制拼接历史并加入当前消息
+            conversation_for_request = self._limit_history(history + [{"role": "user", "content": message}])
+
+            if not conversation_for_request:
+                conversation_for_request = [{"role": "user", "content": message}]
+
+            history = conversation_for_request[:-1]
+
+            for msg in history:
                 messages.append(msg)
-            
+
             # 添加当前消息
-            messages.append({"role": "user", "content": message})
+            messages.append(conversation_for_request[-1])
             
             # 调用OpenAI API
             response = await asyncio.to_thread(
@@ -125,12 +166,8 @@ class WeChatChatGPTBot:
             # 更新聊天历史
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": reply})
-            
-            # 保持历史记录在限制范围内
-            if len(history) > self.max_history * 2:
-                history = history[-(self.max_history * 2):]
-            
-            self.chat_history[user_id] = history
+
+            self.chat_history[user_id] = self._limit_history(history)
             
             return reply
             
