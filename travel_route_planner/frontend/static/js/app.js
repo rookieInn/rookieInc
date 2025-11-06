@@ -62,6 +62,11 @@ function setupEventListeners() {
             sendMessage();
         }
     });
+
+    const exportBtn = document.getElementById('exportPdfBtn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportSelectionToPDF);
+    }
     
     // 视图切换
     document.getElementById('mapViewBtn').addEventListener('click', showMapView);
@@ -556,6 +561,121 @@ function addMessageToChat(type, content) {
     
     messagesContainer.appendChild(messageDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+/**
+ * 将选中的GPT内容导出为PDF
+ */
+function exportSelectionToPDF() {
+    if (typeof html2pdf === 'undefined') {
+        showError('PDF导出库加载失败，请刷新页面后重试');
+        return;
+    }
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+        showError('请先选择要导出的GPT内容');
+        return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const chatContainer = document.getElementById('chatMessages');
+    const selectionContainer = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+        ? range.commonAncestorContainer.parentNode
+        : range.commonAncestorContainer;
+
+    if (!chatContainer.contains(selectionContainer)) {
+        showError('请选择AI助手区域的内容进行导出');
+        return;
+    }
+
+    const selectedText = selection.toString().trim();
+    if (!selectedText) {
+        showError('所选内容为空，请重新选择');
+        return;
+    }
+
+    const normalizedText = selectedText
+        .replace(/\r\n/g, '\n')
+        .replace(/\u00a0/g, ' ')
+        .trim();
+
+    const exportContainer = document.createElement('div');
+    exportContainer.style.position = 'fixed';
+    exportContainer.style.left = '-9999px';
+    exportContainer.style.top = '0';
+    exportContainer.style.width = '190mm';
+    exportContainer.style.maxWidth = '190mm';
+    exportContainer.style.boxSizing = 'border-box';
+    exportContainer.style.padding = '24px 28px';
+    exportContainer.style.backgroundColor = '#ffffff';
+    exportContainer.style.color = '#212529';
+    exportContainer.style.fontFamily = window.getComputedStyle(chatContainer).fontFamily || '"Microsoft YaHei", sans-serif';
+    exportContainer.style.fontSize = '14px';
+    exportContainer.style.lineHeight = '1.7';
+    exportContainer.style.whiteSpace = 'pre-wrap';
+    exportContainer.style.wordBreak = 'break-word';
+    exportContainer.style.border = '1px solid #e9ecef';
+    exportContainer.style.borderRadius = '8px';
+    exportContainer.style.boxShadow = '0 12px 30px rgba(33, 37, 41, 0.12)';
+
+    const title = document.createElement('h2');
+    title.textContent = 'AI助手内容导出';
+    title.style.margin = '0 0 12px';
+    title.style.fontSize = '20px';
+    title.style.color = '#0d6efd';
+
+    const meta = document.createElement('p');
+    meta.style.margin = '0 0 16px';
+    meta.style.fontSize = '12px';
+    meta.style.color = '#6c757d';
+    const timestamp = new Date();
+    const formattedTime = `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, '0')}-${String(timestamp.getDate()).padStart(2, '0')} ${String(timestamp.getHours()).padStart(2, '0')}:${String(timestamp.getMinutes()).padStart(2, '0')}:${String(timestamp.getSeconds()).padStart(2, '0')}`;
+    meta.textContent = `导出时间：${formattedTime}`;
+
+    const content = document.createElement('div');
+    content.style.padding = '16px';
+    content.style.backgroundColor = '#f8f9fa';
+    content.style.borderRadius = '6px';
+    content.style.border = '1px solid #dee2e6';
+    content.textContent = normalizedText;
+
+    exportContainer.appendChild(title);
+    exportContainer.appendChild(meta);
+    exportContainer.appendChild(content);
+
+    document.body.appendChild(exportContainer);
+
+    const fileName = `gpt-content-${timestamp.getFullYear()}${String(timestamp.getMonth() + 1).padStart(2, '0')}${String(timestamp.getDate()).padStart(2, '0')}-${String(timestamp.getHours()).padStart(2, '0')}${String(timestamp.getMinutes()).padStart(2, '0')}${String(timestamp.getSeconds()).padStart(2, '0')}.pdf`;
+
+    const options = {
+        margin: [10, 10, 12, 10],
+        filename: fileName,
+        pagebreak: { mode: ['css', 'legacy'] },
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    showLoading();
+
+    html2pdf()
+        .set(options)
+        .from(exportContainer)
+        .save()
+        .then(() => {
+            showSuccess('选中内容已导出为PDF');
+        })
+        .catch(error => {
+            console.error('PDF生成失败:', error);
+            showError('生成PDF失败，请稍后再试');
+        })
+        .finally(() => {
+            hideLoading();
+            document.body.removeChild(exportContainer);
+        });
+
+    selection.removeAllRanges();
 }
 
 /**
