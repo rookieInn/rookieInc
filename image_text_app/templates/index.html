@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <title>图片文字提取与翻译</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>图片文字提取与翻译</h1>
+        <p class="subtitle">上传图片，自动识别文本并翻译为指定语言</p>
+      </header>
+
+      {% if missing_credentials %}
+        <section class="alert alert-warning">
+          <strong>提示：</strong>
+          请在 <code>image_text_app/config.json</code> 中配置 Baidu OCR 与翻译接口凭证，或设置对应环境变量：
+          <code>BAIDU_OCR_API_KEY</code>、<code>BAIDU_OCR_SECRET_KEY</code>、
+          <code>BAIDU_TRANSLATE_APP_ID</code>、<code>BAIDU_TRANSLATE_SECRET_KEY</code>。
+        </section>
+      {% endif %}
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="messages">
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" enctype="multipart/form-data" class="card upload-form">
+        <div class="form-group">
+          <label for="image">选择图片文件</label>
+          <input id="image" name="image" type="file" accept="image/*" required>
+        </div>
+        <div class="form-group">
+          <label for="target_language">翻译目标语言</label>
+          <select id="target_language" name="target_language">
+            {% for code, label in languages.items() %}
+              <option value="{{ code }}" {% if selected_language == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="primary">开始识别与翻译</button>
+      </form>
+
+      {% if has_result %}
+        <section class="results">
+          <div class="card result-card">
+            <header class="result-header">
+              <h2>原文</h2>
+              <button type="button" class="secondary copy-btn" data-copy-target="sourceText">复制</button>
+            </header>
+            <pre id="sourceText">{{ source_text or '（无识别结果）' }}</pre>
+            <a class="link" href="{{ url_for('download_txt', variant='source') }}">下载原文 TXT</a>
+          </div>
+
+          <div class="card result-card">
+            <header class="result-header">
+              <h2>翻译（{{ languages.get(selected_language, selected_language) }}）</h2>
+              <button type="button" class="secondary copy-btn" data-copy-target="translatedText">复制</button>
+            </header>
+            <pre id="translatedText">{{ translated_text or '（无翻译内容）' }}</pre>
+            <a class="link" href="{{ url_for('download_txt', variant='translation') }}">下载译文 TXT</a>
+          </div>
+        </section>
+
+        <section class="card download-options">
+          <h3>导出结果</h3>
+          <div class="download-links">
+            <a class="primary-link" href="{{ url_for('download_txt', variant='pair') }}">原文/译文 对照 TXT</a>
+            <a class="primary-link" href="{{ url_for('download_docx') }}">原文/译文 对照 DOCX</a>
+          </div>
+        </section>
+      {% endif %}
+    </div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "baidu_ocr_api_key": "your-baidu-ocr-api-key",
+  "baidu_ocr_secret_key": "your-baidu-ocr-secret-key",
+  "baidu_translate_app_id": "your-baidu-translate-app-id",
+  "baidu_translate_secret_key": "your-baidu-translate-secret-key"
+}
