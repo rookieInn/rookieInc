@@ -58,6 +58,22 @@ print(f"眨眼检测: {results['blink_detected']}")
 print(f"张嘴检测: {results['mouth_open_detected']}")
 ```
 
+### 4. 图片拼接工具
+
+使用`image_collage.py`将多张图片拼接成长图或指定网格，并可自定义间距与背景色/背景图：
+
+```bash
+python image_collage.py \
+  --layout 2x2 \
+  --spacing 20 \
+  --margin 10 \
+  --background-colour "#F5F5F5" \
+  -o output.png \
+  img1.jpg img2.jpg img3.jpg img4.jpg
+```
+
+若希望使用背景图，可传入`--background-image background.png`，脚本会自动缩放背景图以适配拼接结果。
+
 ## 检测原理
 
 ### 眨眼检测 (EAR - Eye Aspect Ratio)
