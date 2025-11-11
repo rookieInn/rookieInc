@@ -131,6 +131,29 @@ detector = FaceLivenessDetector(use_gpu=True)
 # 启用详细日志输出
 ```
 
+## 发票信息提取
+
+项目中新增了`invoice_info_extractor.py`用于从发票图片中自动识别关键信息（发票代码、号码、开票日期、购销双方信息、价税合计等）。脚本会自动检测可用的OCR引擎，优先顺序为 `paddleocr` → `easyocr` → `pytesseract`。
+
+- **安装依赖**：请确保至少安装以下任意一个OCR库  
+  ```bash
+  pip install paddleocr
+  # 或者
+  pip install easyocr
+  # 或者
+  pip install pytesseract pillow
+  ```
+- **执行示例**：  
+  ```bash
+  python invoice_info_extractor.py 发票图片.jpg --json result.json
+  ```
+- **命令行参数**：
+  - `--engine` 指定优先尝试的OCR引擎（可多选）
+  - `--use-gpu` 当OCR库支持时启用GPU
+  - `--min-score` 设置OCR最低置信度阈值
+
+脚本执行后会在终端输出结构化的JSON结果，并可通过`--json`将结果写入文件以便后续处理。
+
 ## 许可证
 
 MIT License
