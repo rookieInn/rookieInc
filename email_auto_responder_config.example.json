@@ -1,0 +1,60 @@
+{
+  "imap": {
+    "host": "imap.example.com",
+    "port": 993,
+    "use_ssl": true
+  },
+  "smtp": {
+    "host": "smtp.example.com",
+    "port": 465,
+    "use_ssl": true,
+    "use_starttls": false
+  },
+  "credentials": {
+    "username": "bot@example.com",
+    "password": "$ENV{EMAIL_APP_PASSWORD}",
+    "sender_name": "Support Bot"
+  },
+  "mailbox": "INBOX",
+  "processed_store": ".auto_responder_processed.json",
+  "poll_interval": 120,
+  "max_replies_per_run": 20,
+  "keyword_rules": [
+    {
+      "name": "refund-request",
+      "keywords": [
+        "退款",
+        "退货",
+        "refund"
+      ],
+      "match_all": false,
+      "case_sensitive": false,
+      "response": {
+        "subject": "Re: {original_subject}",
+        "body": "您好，我们已经收到您的退款请求，会在24小时内与您联系确认具体细节。\n\n如果您有补充信息，请直接回复此邮件。",
+        "reply_to_all": false,
+        "include_original_message": false
+      }
+    },
+    {
+      "name": "pricing",
+      "keywords": [
+        "报价",
+        "价格",
+        "pricing"
+      ],
+      "response": {
+        "subject": "Re: {original_subject}",
+        "body": "您好，感谢您咨询价格相关信息。我们的团队会在1个工作日内发送详细报价单。",
+        "reply_to_all": false,
+        "include_original_message": false
+      }
+    }
+  ],
+  "default_response": {
+    "subject": "Re: {original_subject}",
+    "body": "您好，我们已经收到您的来信，会尽快回复您。如有紧急情况，请拨打客服电话。",
+    "reply_to_all": false,
+    "include_original_message": false
+  }
+}
