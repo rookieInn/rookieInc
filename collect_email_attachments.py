@@ -27,20 +27,30 @@ Download attachments between two dates:
 from __future__ import annotations
 
 import argparse
+import csv
 import getpass
 import imaplib
 import logging
 import mimetypes
 import os
+import re
+import shutil
 import sys
-from dataclasses import dataclass
+import zipfile
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from email import message_from_bytes, policy
 from email.header import decode_header, make_header
 from email.message import EmailMessage
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
+
+try:
+    from pdfminer.high_level import extract_text as pdf_extract_text
+except ImportError:  # pragma: no cover - optional dependency
+    pdf_extract_text = None
 
 
 # --------------------------------------------------------------------------- #
@@ -60,6 +70,52 @@ class DateRange:
         if self.until is None:
             return None
         return self.until + timedelta(days=1)
+
+
+@dataclass
+class InvoiceRecord:
+    file_path: Path
+    amount: Decimal
+    currency: str
+
+
+@dataclass
+class InvoiceSummary:
+    currency: str = "CNY"
+    records: List[InvoiceRecord] = field(default_factory=list)
+    failures: List[Tuple[Path, str]] = field(default_factory=list)
+
+    def add_record(self, file_path: Path, amount: Decimal) -> None:
+        self.records.append(
+            InvoiceRecord(file_path=file_path, amount=amount, currency=self.currency)
+        )
+
+    def add_failure(self, file_path: Path, reason: str) -> None:
+        self.failures.append((file_path, reason))
+
+    @property
+    def total_amount(self) -> Decimal:
+        total = Decimal("0")
+        for record in self.records:
+            total += record.amount
+        return total
+
+    def write_csv(self, target_path: Path) -> None:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        with target_path.open("w", newline="", encoding="utf-8") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(["file_path", "amount", "currency"])
+            for record in self.records:
+                writer.writerow([str(record.file_path), f"{record.amount:.2f}", record.currency])
+            writer.writerow(["TOTAL", f"{self.total_amount:.2f}", self.currency])
+
+
+SUPPORTED_INVOICE_EXTENSIONS = {".pdf", ".txt", ".html", ".htm", ".xml", ".csv"}
+INVOICE_KEYWORDS = ("发票", "invoice", "金额", "合计", "价税合计", "人民币", "amount", "total")
+TOTAL_KEYWORDS = ("价税合计", "合计", "总金额", "total", "amount due", "总计", "合计金额")
+AMOUNT_PATTERN = re.compile(
+    r"(?:[¥￥]\s*)?([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})|[0-9]+(?:\.[0-9]{1,2}))"
+)
 
 
 def parse_iso_date(value: str) -> date:
@@ -110,6 +166,94 @@ def ensure_unique_path(path: Path) -> Path:
         if not candidate.exists():
             return candidate
         counter += 1
+
+
+def ensure_unique_directory(path: Path) -> Path:
+    if not path.exists():
+        return path
+    counter = 1
+    while True:
+        candidate = path.parent / f"{path.name}_{counter}"
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
+def looks_like_invoice_text(text: str) -> bool:
+    lowered = text.lower()
+    for keyword in INVOICE_KEYWORDS:
+        if keyword.lower() in lowered:
+            return True
+    return False
+
+
+def parse_decimal(value: str) -> Optional[Decimal]:
+    try:
+        decimal_value = Decimal(value.replace(",", ""))
+    except InvalidOperation:
+        return None
+    return decimal_value.quantize(Decimal("0.01"))
+
+
+def parse_amounts_from_line(line: str) -> List[Decimal]:
+    amounts: List[Decimal] = []
+    for match in AMOUNT_PATTERN.finditer(line):
+        number_part = match.group(1)
+        decimal_value = parse_decimal(number_part)
+        if decimal_value is not None:
+            amounts.append(decimal_value)
+    return amounts
+
+
+def detect_invoice_amount(text: str) -> Optional[Decimal]:
+    prioritized: List[Decimal] = []
+    candidates: List[Decimal] = []
+
+    for raw_line in text.splitlines():
+        line = re.sub(r"\s+", " ", raw_line.strip())
+        if not line:
+            continue
+        amounts = parse_amounts_from_line(line)
+        if not amounts:
+            continue
+        lowered = line.lower()
+        if any(keyword.lower() in lowered for keyword in TOTAL_KEYWORDS):
+            prioritized.extend(amounts)
+        elif any(keyword.lower() in lowered for keyword in INVOICE_KEYWORDS):
+            candidates.extend(amounts)
+
+    for pool in (prioritized, candidates):
+        if pool:
+            return max(pool)
+    return None
+
+
+def extract_text_from_pdf(file_path: Path) -> Optional[str]:
+    if pdf_extract_text is None:
+        logging.debug("未安装 pdfminer.six，无法解析 PDF: %s", file_path)
+        return None
+    try:
+        return pdf_extract_text(str(file_path))
+    except Exception as exc:  # pragma: no cover - best effort logging
+        logging.debug("解析 PDF 失败 (%s): %s", file_path, exc)
+        return None
+
+
+def extract_text_from_file(file_path: Path) -> Optional[str]:
+    suffix = file_path.suffix.lower()
+    if suffix == ".pdf":
+        return extract_text_from_pdf(file_path)
+    if suffix in {".txt", ".csv", ".html", ".htm", ".xml"}:
+        try:
+            return file_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception as exc:
+            logging.debug("读取文本文件失败 (%s): %s", file_path, exc)
+            return None
+    return None
+
+
+def is_supported_invoice_file(file_path: Path) -> bool:
+    return file_path.suffix.lower() in SUPPORTED_INVOICE_EXTENSIONS
 
 
 def resolve_password(args: argparse.Namespace) -> str:
@@ -178,6 +322,105 @@ def iter_message_attachments(message: EmailMessage) -> Iterable[EmailMessage]:
             yield part
 
 
+def process_attachment_file(
+    file_path: Path,
+    summary: InvoiceSummary,
+    args: argparse.Namespace,
+    *,
+    depth: int = 0,
+) -> None:
+    suffix = file_path.suffix.lower()
+    if suffix == ".zip":
+        process_zip_attachment(file_path, summary, args, depth=depth)
+        return
+    analyze_invoice_file(file_path, summary)
+
+
+def safe_extract_zip(archive: zipfile.ZipFile, target_dir: Path) -> List[Path]:
+    extracted_files: List[Path] = []
+    root = target_dir.resolve()
+    for member in archive.infolist():
+        member_path = Path(member.filename)
+        if not member_path.parts:
+            continue
+        # 忽略 macOS 产生的隐藏目录
+        if member_path.parts[0].startswith("__MACOSX"):
+            continue
+        destination = (target_dir / member_path).resolve()
+        if not str(destination).startswith(str(root)):
+            raise RuntimeError(f"检测到潜在的ZIP路径穿越: {member.filename}")
+        if member.is_dir():
+            destination.mkdir(parents=True, exist_ok=True)
+            continue
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with archive.open(member) as src, destination.open("wb") as dst:
+            shutil.copyfileobj(src, dst)
+        extracted_files.append(destination)
+    return extracted_files
+
+
+def process_zip_attachment(
+    zip_path: Path,
+    summary: InvoiceSummary,
+    args: argparse.Namespace,
+    *,
+    depth: int = 0,
+) -> None:
+    if depth >= args.max_zip_depth:
+        logging.warning("达到 ZIP 解压最大深度，跳过: %s", zip_path)
+        summary.add_failure(zip_path, "ZIP 解压深度超限")
+        return
+    if args.dry_run:
+        logging.info("DRY-RUN: 将解压 ZIP 附件 %s", zip_path.name)
+        return
+    target_dir = ensure_unique_directory(zip_path.parent / f"{zip_path.stem}_unzipped")
+    try:
+        with zipfile.ZipFile(zip_path) as archive:
+            extracted_files = safe_extract_zip(archive, target_dir)
+    except zipfile.BadZipFile as exc:
+        logging.warning("ZIP 附件解压失败 (%s): %s", zip_path, exc)
+        summary.add_failure(zip_path, f"ZIP 解压失败: {exc}")
+        return
+    except RuntimeError as exc:
+        logging.warning("ZIP 附件包含不安全路径，已跳过 (%s): %s", zip_path, exc)
+        summary.add_failure(zip_path, f"ZIP 解压安全检查失败: {exc}")
+        shutil.rmtree(target_dir, ignore_errors=True)
+        return
+    logging.info(
+        "解压 ZIP 附件: %s -> %s (%d 个文件)",
+        zip_path.name,
+        target_dir,
+        len(extracted_files),
+    )
+    for extracted_path in extracted_files:
+        process_attachment_file(
+            extracted_path, summary, args, depth=depth + 1
+        )
+
+
+def analyze_invoice_file(file_path: Path, summary: InvoiceSummary) -> None:
+    if not is_supported_invoice_file(file_path):
+        return
+    text = extract_text_from_file(file_path)
+    if not text:
+        summary.add_failure(file_path, "无法提取文本内容")
+        return
+    if not looks_like_invoice_text(text):
+        logging.debug("文件不包含发票关键词，跳过: %s", file_path)
+        return
+    amount = detect_invoice_amount(text)
+    if amount is None:
+        summary.add_failure(file_path, "未识别到金额")
+        return
+    summary.add_record(file_path, amount)
+    logging.info(
+        "识别发票: %s | 金额 %.2f %s",
+        file_path,
+        amount,
+        summary.currency,
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Core collection logic
 # --------------------------------------------------------------------------- #
@@ -189,6 +432,15 @@ def collect_attachments(args: argparse.Namespace) -> None:
     date_range = resolve_date_range(args)
     output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    invoice_summary: Optional[InvoiceSummary] = None
+    if not args.skip_invoice_detection:
+        ensure_positive(args.max_zip_depth, "--max-zip-depth")
+        invoice_summary = InvoiceSummary(currency=args.invoice_currency)
+    elif args.invoice_summary_file:
+        logging.warning(
+            "已启用 --skip-invoice-detection，忽略 --invoice-summary-file 参数"
+        )
 
     logging.info("连接 IMAP 服务器 %s:%s", args.imap_server, args.imap_port)
     try:
@@ -311,10 +563,31 @@ def collect_attachments(args: argparse.Namespace) -> None:
                     sender or "(未知)",
                 )
 
+                if invoice_summary is not None:
+                    process_attachment_file(target_path, invoice_summary, args)
+
             if not attachment_found:
                 logging.debug("邮件 #%s 无附件", msg_id)
 
         logging.info("处理完成: %d 封邮件, 保存附件 %d 个, 跳过 %d 个", total_messages, attachments_saved, attachments_skipped)
+
+        if invoice_summary is not None:
+            if invoice_summary.records:
+                logging.info(
+                    "识别到 %d 张发票，总金额 %.2f %s",
+                    len(invoice_summary.records),
+                    invoice_summary.total_amount,
+                    invoice_summary.currency,
+                )
+                if args.invoice_summary_file:
+                    summary_path = Path(args.invoice_summary_file).expanduser().resolve()
+                    invoice_summary.write_csv(summary_path)
+                    logging.info("发票识别结果已写入 %s", summary_path)
+            else:
+                logging.info("未识别到任何发票")
+            if invoice_summary.failures and logging.getLogger().isEnabledFor(logging.DEBUG):
+                for failed_path, reason in invoice_summary.failures:
+                    logging.debug("发票识别失败: %s | %s", failed_path, reason)
 
 
 # --------------------------------------------------------------------------- #
@@ -344,6 +617,15 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-existing", action="store_true", help="若附件已存在同名文件则跳过")
     parser.add_argument("--dry-run", action="store_true", help="仅打印计划执行的操作，不实际下载")
     parser.add_argument("--log-level", default="INFO", help="日志级别")
+    parser.add_argument("--skip-invoice-detection", action="store_true", help="不自动识别附件中的发票信息")
+    parser.add_argument("--invoice-summary-file", help="识别到的发票金额将输出到此 CSV 文件")
+    parser.add_argument("--invoice-currency", default="CNY", help="发票金额的币种标记")
+    parser.add_argument(
+        "--max-zip-depth",
+        type=int,
+        default=2,
+        help="ZIP 附件递归解压的最大深度（防止嵌套压缩过深）",
+    )
 
     return parser
 

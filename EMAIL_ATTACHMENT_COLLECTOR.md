@@ -1,12 +1,21 @@
 # 邮件附件收集脚本使用说明
 
-`collect_email_attachments.py` 脚本用于从指定邮箱的收件箱中，按照设定的时间范围批量下载邮件附件到本地文件夹。脚本基于标准库 `imaplib`，无需额外依赖，可直接运行。
+`collect_email_attachments.py` 脚本用于从指定邮箱的收件箱中，按照设定的时间范围批量下载邮件附件到本地文件夹，并支持以下自动化能力：
+
+- 自动解压收到的 ZIP 附件（包含嵌套 ZIP 的情况）
+- 尝试识别解压后的发票（目前支持 PDF/TXT/HTML/XML/CSV 文本类文件）
+- 汇总识别出的发票金额，并可导出 CSV 报表
 
 ## 1. 环境准备
 
 - Python 3.8 及以上版本
 - 可访问目标邮箱的 IMAP 服务
 - 已开启邮箱的 IMAP 权限（如 Gmail 需在后台开启 IMAP，并使用应用专用密码）
+- 安装依赖：
+  ```bash
+  pip install -r requirements.txt
+  ```
+  其中 `pdfminer.six` 用于解析 PDF 发票文本；若跳过发票识别，可不安装该依赖。
 
 ## 2. 常用命令示例
 
@@ -43,6 +52,17 @@ python3 collect_email_attachments.py \
   --dry-run
 ```
 
+### 下载附件并输出发票汇总
+```bash
+python3 collect_email_attachments.py \
+  --imap-server imap.example.com \
+  --username user@example.com \
+  --password-env-var MAIL_PASSWORD \
+  --days 30 \
+  --output-dir ./attachments \
+  --invoice-summary-file ./attachments/invoice_summary.csv
+```
+
 ## 3. 常用参数说明
 
 | 参数 | 说明 |
@@ -62,10 +82,24 @@ python3 collect_email_attachments.py \
 | `--skip-existing` | 同名文件已存在时跳过保存 |
 | `--dry-run` | 不写入文件，仅输出计划操作 |
 | `--log-level` | 日志级别，默认 `INFO` |
+| `--skip-invoice-detection` | 不执行发票识别（仅下载附件） |
+| `--invoice-summary-file` | 将识别到的发票金额写入 CSV 文件 |
+| `--invoice-currency` | 发票金额币种标记，默认 `CNY` |
+| `--max-zip-depth` | ZIP 递归解压的最大深度，默认 2 层 |
 
 > ⚠️ **安全建议**：优先使用 `--password-env-var` 或 `--ask-password`，避免在命令历史中暴露明文密码。
 
-## 4. 输出文件策略
+## 4. 自动解压与发票识别
+
+- ZIP 附件会自动解压至同级目录下的 `xxx_unzipped/` 目录，脚本内置路径穿越检查，确保安全。
+- 支持解析 PDF/TXT/HTML/XML/CSV 等文本类型的发票文件，若未检测到关键字“发票”“价税合计”等，将自动跳过。
+- 提取到的金额会按总额关键词优先（如“价税合计”“总金额”）取最大值；识别成功与失败信息都会写入日志。
+- 指定 `--invoice-summary-file` 后，会生成发票金额汇总表（包含总计行）。
+- 若不希望执行发票识别，可使用 `--skip-invoice-detection`。
+
+> 💡 **识别准确性说明**：脚本基于文本匹配策略，适用于标准电子发票或 PDF 文本版发票。对于图片类发票或 OFD 文件，可结合 OCR/OFD 解析工具后再接入本脚本。
+
+## 5. 输出文件策略
 
 - 附件保存到 `--output-dir` 指定的文件夹。
 - 文件名会自动清理非法字符。
@@ -73,14 +107,16 @@ python3 collect_email_attachments.py \
   - 加上 `--skip-existing` 将跳过保存；
   - 否则自动在文件名后追加序号，例如 `report.pdf`, `report_1.pdf`。
 
-## 5. 故障排查
+## 6. 故障排查
 
 - **IMAP 登录失败**：确认服务器地址、端口、账号密码是否正确；确保已启用 IMAP。
 - **未找到邮件**：调整日期范围或邮箱文件夹名称。
 - **附件保存失败**：检查输出目录权限和磁盘空间；确认附件内容是否为空。
 - **编码异常**：脚本会自动解码常见的 MIME 编码，如遇特殊编码可开启 `--log-level DEBUG` 以获取详细信息。
+- **PDF 无法解析**：确保已安装 `pdfminer.six`。若仍失败，可尝试将 PDF 转换为文本后再识别。
+- **发票金额未识别**：打开调试日志 (`--log-level DEBUG`) 查看具体原因，留意发票文件是否为图片或格式特殊。
 
-## 6. 建议的运行流程
+## 7. 建议的运行流程
 
 1. 使用 `--dry-run` 预览即将下载的附件。
 2. 去掉 `--dry-run`，确认输出目录空间充足后正式执行。
