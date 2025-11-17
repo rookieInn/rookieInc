@@ -131,6 +131,36 @@ detector = FaceLivenessDetector(use_gpu=True)
 # 启用详细日志输出
 ```
 
+## 批量视频片段转 GIF
+
+仓库新增了 `batch_video_to_gif.py`，可借助 `ffmpeg` 将一个或多个视频片段快速转换为 GIF，适合生成预览、动图素材或社交媒体分享内容。
+
+### 环境依赖
+
+- `ffmpeg`：请确保可以在命令行直接执行 `ffmpeg`
+- Python 3.9+（脚本仅使用标准库）
+
+### 快速开始
+
+```bash
+python3 batch_video_to_gif.py ./source_clips -o ./gif_outputs --fps 15 --width 480
+```
+
+- 支持同时传入多个文件或目录，并会递归查找 `.mp4/.mov/.mkv/.avi/.m4v/.webm`
+- 输出目录缺失时会自动创建
+- 默认生成无限循环 GIF，可通过 `--loop` 调整
+
+### 常用参数
+
+- `--start` / `--duration`：只截取视频中的特定时间段
+- `--fps`、`--width`、`--height`、`--scale-algorithm`：控制 GIF 清晰度与尺寸
+- `--max-colors`、`--dither`、`--palette-mode`：调节调色板与抖动策略，平衡文件体积与画质
+- `--preserve-structure`：在输出目录保留原始子目录结构
+- `--overwrite`：允许覆盖已存在的 GIF
+- `--dry-run`：仅打印计划执行的操作，便于大批量任务前检查
+
+执行 `python3 batch_video_to_gif.py --help` 可查看全部选项及详细说明。
+
 ## 许可证
 
 MIT License
