@@ -7,3 +7,5 @@ tensorflow-gpu==2.13.0
 mediapipe==0.10.7
 pillow==10.0.1
 matplotlib==3.7.2
+oss2==2.18.5
+PyMySQL==1.1.1
