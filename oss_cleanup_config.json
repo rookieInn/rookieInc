@@ -1,0 +1,39 @@
+{
+    "oss": {
+        "endpoint": "https://oss-cn-hangzhou.aliyuncs.com",
+        "bucket_name": "your-bucket-name",
+        "access_key_id": "your-access-key-id",
+        "access_key_secret": "your-access-key-secret",
+        "object_prefix": "user-images/"
+    },
+    "database": {
+        "host": "127.0.0.1",
+        "port": 3306,
+        "user": "root",
+        "password": "your-password",
+        "name": "image_service",
+        "table": "user_images",
+        "id_column": "id",
+        "user_column": "user_id",
+        "model_column": "model_name",
+        "oss_key_column": "oss_object_key",
+        "created_at_column": "created_at",
+        "sort_column": "created_at",
+        "sort_desc": true,
+        "extra_filters": {
+            "is_deleted": 0
+        }
+    },
+    "cleanup": {
+        "max_images_per_model": 10,
+        "dry_run": true,
+        "batch_size": 500,
+        "ignored_models": [],
+        "only_models": [],
+        "timezone": "UTC"
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "oss_cleanup.log"
+    }
+}
