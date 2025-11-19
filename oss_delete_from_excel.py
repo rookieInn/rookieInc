@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-根据Excel中的OSS图片URL批量删除对象的脚本。
+根据Excel/CSV中的OSS图片URL批量删除对象的脚本。
 
 核心能力：
-1. 读取Excel文件中指定列的图片URL
+1. 读取Excel/CSV文件中指定列的图片URL
 2. 解析URL中的OSS桶名与对象路径
 3. 利用配置文件中的AccessKey信息批量删除对象
 
@@ -14,6 +14,12 @@
         --column url \
         --config oss_monitor_config.json \
         --dry-run
+
+    python oss_delete_from_excel.py \
+        --excel input.csv \
+        --column pic_url \
+        --csv-delimiter "," \
+        --config oss_monitor_config.json
 
 依赖库：
     - pandas (读取Excel)
@@ -256,13 +262,25 @@ class OSSDeletionManager:
         return None
 
 
-def load_urls_from_excel(excel_path: str, column_name: str, deduplicate: bool = True) -> List[str]:
-    if not os.path.isfile(excel_path):
-        raise FileNotFoundError(f"未找到Excel文件: {excel_path}")
+def load_urls_from_file(
+    file_path: str,
+    column_name: str,
+    deduplicate: bool = True,
+    csv_delimiter: str = ",",
+) -> List[str]:
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"未找到数据文件: {file_path}")
 
-    df = pd.read_excel(excel_path, engine="openpyxl")
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext in {".xlsx", ".xls", ".xlsm"}:
+        df = pd.read_excel(file_path, engine="openpyxl")
+    elif ext == ".csv":
+        df = pd.read_csv(file_path, delimiter=csv_delimiter)
+    else:
+        raise ValueError("仅支持Excel(.xlsx/.xls/.xlsm)或CSV(.csv)文件")
+
     if column_name not in df.columns:
-        raise KeyError(f"Excel中未找到列: {column_name}，可用列: {list(df.columns)}")
+        raise KeyError(f"数据文件中未找到列: {column_name}，可用列: {list(df.columns)}")
 
     urls = df[column_name].dropna().astype(str).tolist()
     if deduplicate:
@@ -300,11 +318,12 @@ def summarize_results(results: List[DeleteResult]):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="根据Excel中的OSS URL批量删除对象")
-    parser.add_argument("--excel", required=True, help="包含URL的Excel文件路径")
-    parser.add_argument("--column", default="url", help="Excel中存放URL的列名，默认:url")
+    parser = argparse.ArgumentParser(description="根据Excel/CSV中的OSS URL批量删除对象")
+    parser.add_argument("--excel", required=True, help="包含URL的数据文件路径 (支持Excel/CSV)")
+    parser.add_argument("--column", default="url", help="文件中存放URL的列名，默认:url")
     parser.add_argument("--config", default="oss_monitor_config.json", help="OSS凭证配置文件路径")
     parser.add_argument("--deduplicate", action="store_true", help="去重URL后再删除")
+    parser.add_argument("--csv-delimiter", default=",", help="CSV文件分隔符，默认逗号")
     parser.add_argument("--dry-run", action="store_true", help="仅打印将要删除的对象，不实际删除")
     parser.add_argument("--verbose", action="store_true", help="输出调试日志")
     return parser.parse_args()
@@ -314,8 +333,13 @@ def main():
     args = parse_args()
     configure_logging(args.verbose)
 
-    logging.info("开始读取Excel: %s (列: %s)", args.excel, args.column)
-    urls = load_urls_from_excel(args.excel, args.column, deduplicate=args.deduplicate)
+    logging.info("开始读取数据文件: %s (列: %s)", args.excel, args.column)
+    urls = load_urls_from_file(
+        args.excel,
+        args.column,
+        deduplicate=args.deduplicate,
+        csv_delimiter=args.csv_delimiter,
+    )
     logging.info("共获取到 %s 条URL", len(urls))
 
     manager = OSSDeletionManager(config_path=args.config, dry_run=args.dry_run)
